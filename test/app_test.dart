@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:conduit/core/presentation/system_navigation_insets.dart';
 import 'package:conduit/core/theme/app_palette.dart';
@@ -30,6 +29,7 @@ import 'package:conduit/features/terminal/presentation/terminal_session_controll
 import 'package:conduit/features/terminal/presentation/terminal_workspace_controller.dart';
 import 'package:conduit/main.dart';
 import 'package:conduit_vt/conduit_vt.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -356,6 +356,27 @@ void main() {
 
       controller.dispose();
     });
+
+    test(
+      'deduplicates iOS enter events delivered through two input paths',
+      () async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+
+        final session = _PredictiveTerminalSession();
+        final controller = TerminalSessionController(
+          host: _buildHost('ios-enter'),
+          repository: _ImmediateTerminalRepository(session),
+        );
+        addTearDown(controller.dispose);
+
+        await controller.connect();
+        controller.sendKey(TerminalKey.enter);
+        controller.sendKey(TerminalKey.enter);
+
+        expect(session.sent.map(String.fromCharCodes), ['\r']);
+      },
+    );
   });
 
   group('SavedHost.isValid', () {

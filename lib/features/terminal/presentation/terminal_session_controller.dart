@@ -42,6 +42,7 @@ class TerminalSessionController extends ChangeNotifier {
   final _outputFilter = TerminalStringSequenceFilter();
   final _predictiveEcho = PredictiveEcho();
   final _terminalPaintNotifier = ChangeNotifier();
+  final Stopwatch _inputClock = Stopwatch()..start();
 
   TerminalConnectionStatus _status = TerminalConnectionStatus.idle;
   SshTerminalSession? _session;
@@ -60,6 +61,9 @@ class TerminalSessionController extends ChangeNotifier {
   bool _disposed = false;
   bool _predictiveEchoEnabled = true;
   int _connectionGeneration = 0;
+  int? _lastIosEnterOutputMs;
+
+  static const _iosDuplicateEnterWindow = Duration(milliseconds: 80);
 
   TerminalConnectionStatus get status => _status;
   String get title => _title.isEmpty ? host.name : _title;
@@ -274,6 +278,10 @@ class TerminalSessionController extends ChangeNotifier {
   }
 
   void _sendTerminalOutput(String data) {
+    if (_shouldSuppressDuplicateIosEnter(data)) {
+      return;
+    }
+
     final session = _session;
     if (session == null) {
       return;
@@ -302,6 +310,26 @@ class TerminalSessionController extends ChangeNotifier {
     }
 
     unawaited(session.send(bytes).catchError(_handleStreamError));
+  }
+
+  bool _shouldSuppressDuplicateIosEnter(String data) {
+    if (defaultTargetPlatform != TargetPlatform.iOS || !_isEnterOutput(data)) {
+      if (data.isNotEmpty && !_isEnterOutput(data)) {
+        _lastIosEnterOutputMs = null;
+      }
+      return false;
+    }
+
+    final now = _inputClock.elapsedMilliseconds;
+    final last = _lastIosEnterOutputMs;
+    _lastIosEnterOutputMs = now;
+
+    return last != null &&
+        now - last <= _iosDuplicateEnterWindow.inMilliseconds;
+  }
+
+  bool _isEnterOutput(String data) {
+    return data == '\r' || data == '\r\n';
   }
 
   void _writeTerminalOutput(String data) {

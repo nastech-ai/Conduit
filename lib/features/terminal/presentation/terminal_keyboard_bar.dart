@@ -231,6 +231,7 @@ class _Key extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isIconKey = icon != null;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 2),
       child: Material(
@@ -240,8 +241,9 @@ class _Key extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           onTap: onPressed,
           child: Container(
-            width: 44,
             height: 36,
+            constraints: BoxConstraints(minWidth: isIconKey ? 44 : 46),
+            padding: EdgeInsets.symmetric(horizontal: isIconKey ? 0 : 10),
             alignment: Alignment.center,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
@@ -255,6 +257,8 @@ class _Key extends StatelessWidget {
                       fontSize: 12.5,
                       fontWeight: FontWeight.w700,
                     ),
+                    maxLines: 1,
+                    softWrap: false,
                   )
                 : Icon(
                     icon,
