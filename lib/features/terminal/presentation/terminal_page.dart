@@ -317,8 +317,6 @@ class _TerminalHeader extends StatelessWidget {
               ],
             ),
           ),
-          _StatusBadge(status: session.status),
-          const SizedBox(width: 4),
           IconButton(
             tooltip: 'Reconnect',
             color: foreground,
@@ -468,18 +466,6 @@ class _SessionTab extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
-
-  final TerminalConnectionStatus status;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = _statusPalette(status, Theme.of(context));
-    return ConduitStatusPill(label: palette.label, color: palette.color);
   }
 }
 
