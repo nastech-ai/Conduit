@@ -7,6 +7,7 @@ import 'package:conduit/features/terminal/domain/network_connectivity.dart';
 import 'package:conduit/features/terminal/domain/predictive_echo.dart';
 import 'package:conduit/features/terminal/domain/predictive_terminal_session.dart';
 import 'package:conduit/features/terminal/domain/roaming_terminal_session.dart';
+import 'package:conduit/features/terminal/domain/security_key_interaction.dart';
 import 'package:conduit/features/terminal/domain/ssh_terminal_repository.dart';
 import 'package:conduit/features/terminal/domain/ssh_terminal_session.dart';
 import 'package:conduit/features/terminal/domain/terminal_string_sequence_filter.dart';
@@ -27,7 +28,7 @@ class TerminalSessionController extends ChangeNotifier {
     required this.host,
     required this.repository,
     this.connectivity,
-    bool predictiveEchoEnabled = true,
+    bool predictiveEchoEnabled = false,
   }) : keyboard = TerminalKeyboardController(defaultInputHandler),
        terminal = Terminal(maxLines: 10000) {
     _predictiveEchoEnabled = predictiveEchoEnabled;
@@ -59,7 +60,7 @@ class TerminalSessionController extends ChangeNotifier {
   int _pendingRows = 0;
   bool _disconnecting = false;
   bool _disposed = false;
-  bool _predictiveEchoEnabled = true;
+  bool _predictiveEchoEnabled = false;
   int _connectionGeneration = 0;
   int? _lastIosEnterOutputMs;
 
@@ -123,7 +124,11 @@ class TerminalSessionController extends ChangeNotifier {
     );
     notifyListeners();
 
+    StreamSubscription<String>? securityKeySubscription;
     try {
+      securityKeySubscription = SecurityKeyInteraction.instance.messages.listen(
+        (message) => terminal.write('$message\r\n'),
+      );
       final session = await repository.connect(
         host,
         columns: terminal.viewWidth,
@@ -197,6 +202,8 @@ class TerminalSessionController extends ChangeNotifier {
         return;
       }
       _fail('Connection failed: $error');
+    } finally {
+      await securityKeySubscription?.cancel();
     }
   }
 

@@ -1,0 +1,5 @@
+Hardware key authentication is here: connect with OpenSSH FIDO security-key credentials such as ed25519-sk and ecdsa-sk. Tested with YubiKey and designed for CTAP-compatible keys.
+
+USB and NFC hardware-key authentication is supported. Terminal and SFTP now show clear hardware-key prompts while connecting.
+
+Predictive echo remains experimental and is now opt-in when using Mosh.

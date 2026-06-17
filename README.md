@@ -21,10 +21,24 @@ There's an SFTP browser for moving files around, host-key trust you manage
 yourself, an optional device-auth app lock, and a stack of built-in terminal
 themes (Catppuccin, Tokyo Night, Gruvbox, Nord, and the usual suspects).
 
-Mosh is still experimental. It runs on
-[dart_mosh](https://github.com/gwitko/dart_mosh), a clean-room Dart
-implementation of the protocol, and the terminal is
+Mosh runs on [dart_mosh](https://github.com/gwitko/dart_mosh), a clean-room
+Dart implementation of the protocol, and the terminal is
 [conduit_vt](https://github.com/gwitko/conduit_vt), a fork of xterm.dart.
+
+## Features
+
+- SSH terminal sessions with saved machine profiles and tabbed workspaces.
+- Mosh sessions for roaming across Wi-Fi drops and network changes.
+- SFTP browser for navigating, downloading, uploading, renaming, and deleting files.
+- OpenSSH private key, password, and hardware security key authentication.
+- OpenSSH FIDO security-key auth for `ed25519-sk` and `ecdsa-sk` credentials,
+  tested with YubiKey and designed for CTAP-compatible keys.
+- Android hardware-key auth over USB or NFC; iOS hardware-key auth over NFC.
+- Trusted host key management with explicit fingerprint review.
+- On-screen terminal controls for modifiers, arrows, function keys, and common shell input.
+- Optional device-auth app lock for protecting saved machines and credentials.
+- Built-in terminal themes, font sizing, palette choices, and appearance controls.
+- Local-first storage: no account, no cloud sync, no subscription.
 
 ## Screenshots
 
