@@ -8,6 +8,7 @@ class SecureHostKeyVerifier implements HostKeyVerifier {
   SecureHostKeyVerifier(this._storage, this._prompt);
 
   static const _trustedKeysKey = 'conduit.trusted_host_keys.v1';
+  static const _sha256AsciiHexFingerprintPrefix = 'MD5:53:48:41:32:35:36:3a';
 
   final FlutterSecureStorage _storage;
   final HostKeyPrompt _prompt;
@@ -73,13 +74,19 @@ class SecureHostKeyVerifier implements HostKeyVerifier {
     if (decoded is! List) {
       return [];
     }
-    return decoded
+    final records = decoded
         .whereType<Map<String, Object?>>()
         .map(HostKeyRecord.fromJson)
         .where(
           (record) => record.host.isNotEmpty && record.fingerprint.isNotEmpty,
         )
         .toList();
+    final originalCount = records.length;
+    records.removeWhere(_isAsciiHexSha256Fingerprint);
+    if (records.length != originalCount) {
+      await _save(records);
+    }
+    return records;
   }
 
   @override
@@ -94,6 +101,12 @@ class SecureHostKeyVerifier implements HostKeyVerifier {
     return _storage.write(
       key: _trustedKeysKey,
       value: jsonEncode(records.map((record) => record.toJson()).toList()),
+    );
+  }
+
+  bool _isAsciiHexSha256Fingerprint(HostKeyRecord record) {
+    return record.fingerprint.toLowerCase().startsWith(
+      _sha256AsciiHexFingerprintPrefix.toLowerCase(),
     );
   }
 }

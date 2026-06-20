@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:conduit/core/app_failure.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
@@ -117,6 +118,10 @@ class SshClientFactory {
   SSHAgentHandler? agentHandlerForTesting(SavedHost host) =>
       _agentHandlerFor(host, _identitiesFor(host));
 
+  @visibleForTesting
+  String formatFingerprintForTesting(Uint8List bytes) =>
+      _formatFingerprint(bytes);
+
   String Function()? _passwordRequestFor(SavedHost host) {
     return host.authMethod == SshAuthMethod.password
         ? () => host.password
@@ -143,6 +148,10 @@ class SshClientFactory {
   }
 
   String _formatFingerprint(Uint8List bytes) {
+    final text = utf8.decode(bytes, allowMalformed: true);
+    if (text.startsWith('SHA256:')) {
+      return text;
+    }
     final parts = bytes.map((byte) => byte.toRadixString(16).padLeft(2, '0'));
     return 'MD5:${parts.join(':')}';
   }

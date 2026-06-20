@@ -693,6 +693,28 @@ void main() {
     });
   });
 
+  group('SshClientFactory host key fingerprints', () {
+    test('formats raw MD5 digest bytes as OpenSSH MD5 text', () {
+      final factory = SshClientFactory(_NoopVerifier());
+
+      final fingerprint = factory.formatFingerprintForTesting(
+        Uint8List.fromList([0x37, 0x9e, 0x7b, 0x91]),
+      );
+
+      expect(fingerprint, 'MD5:37:9e:7b:91');
+    });
+
+    test('passes through textual SHA256 fingerprints without hex encoding', () {
+      final factory = SshClientFactory(_NoopVerifier());
+
+      final fingerprint = factory.formatFingerprintForTesting(
+        Uint8List.fromList(utf8.encode('SHA256:abc')),
+      );
+
+      expect(fingerprint, 'SHA256:abc');
+    });
+  });
+
   group('SshClientFactory hardware key identities', () {
     test('rejects security key stubs for private key auth', () {
       final factory = SshClientFactory(
@@ -1022,6 +1044,79 @@ void main() {
       expect(stored, hasLength(1));
       expect(stored.single.fingerprint, 'MD5:bb');
     });
+
+    test(
+      'loadTrustedKeys repairs fingerprints polluted by SHA256 text bytes',
+      () async {
+        final storage = _InMemorySecureStorage();
+        final verifier = SecureHostKeyVerifier(
+          storage,
+          _StubPrompt(decision: HostKeyDecision.trust),
+        );
+        await storage.write(
+          key: 'conduit.trusted_host_keys.v1',
+          value: jsonEncode([
+            HostKeyRecord(
+              host: 'bad',
+              port: 22,
+              type: 'ssh-ed25519',
+              fingerprint: 'MD5:53:48:41:32:35:36:3a:61:62:63',
+              trustedAt: DateTime.fromMillisecondsSinceEpoch(0),
+            ).toJson(),
+            HostKeyRecord(
+              host: 'good',
+              port: 22,
+              type: 'ssh-ed25519',
+              fingerprint: 'MD5:37:9e:7b:91',
+              trustedAt: DateTime.fromMillisecondsSinceEpoch(0),
+            ).toJson(),
+          ]),
+        );
+
+        final records = await verifier.loadTrustedKeys();
+
+        expect(records, hasLength(1));
+        expect(records.single.host, 'good');
+        final persisted =
+            jsonDecode(
+                  (await storage.read(key: 'conduit.trusted_host_keys.v1'))!,
+                )
+                as List<Object?>;
+        expect(persisted, hasLength(1));
+      },
+    );
+
+    test(
+      'polluted stored fingerprint reconnect prompts as first trust',
+      () async {
+        final storage = _InMemorySecureStorage();
+        await storage.write(
+          key: 'conduit.trusted_host_keys.v1',
+          value: jsonEncode([
+            HostKeyRecord(
+              host: 'a',
+              port: 22,
+              type: 'ssh-ed25519',
+              fingerprint: 'MD5:53:48:41:32:35:36:3a:61:62:63',
+              trustedAt: DateTime.fromMillisecondsSinceEpoch(0),
+            ).toJson(),
+          ]),
+        );
+        final prompt = _CapturingPrompt(decision: HostKeyDecision.reject);
+        final verifier = SecureHostKeyVerifier(storage, prompt);
+
+        final ok = await verifier.verify(
+          host: 'a',
+          port: 22,
+          type: 'ssh-ed25519',
+          fingerprint: 'MD5:37:9e:7b:91',
+        );
+
+        expect(ok, isFalse);
+        expect(prompt.requests.single.kind, HostKeyPromptKind.firstTrust);
+        expect(prompt.requests.single.existing, isNull);
+      },
+    );
   });
 
   group('HostKeyPromptCoordinator', () {
@@ -1608,6 +1703,19 @@ class _StubPrompt implements HostKeyPrompt {
   @override
   Future<HostKeyDecision> request(HostKeyPromptRequest request) async {
     calls += 1;
+    return decision;
+  }
+}
+
+class _CapturingPrompt implements HostKeyPrompt {
+  _CapturingPrompt({required this.decision});
+
+  final HostKeyDecision decision;
+  final List<HostKeyPromptRequest> requests = [];
+
+  @override
+  Future<HostKeyDecision> request(HostKeyPromptRequest request) async {
+    requests.add(request);
     return decision;
   }
 }

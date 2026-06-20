@@ -1,0 +1,3 @@
+Fixes a host-key warning regression that could incorrectly report a trusted SSH server as changed after a recent update.
+
+If a broken trust record was saved during the regression, Conduit now repairs it and asks for a normal first-time trust confirmation on the next connection.
