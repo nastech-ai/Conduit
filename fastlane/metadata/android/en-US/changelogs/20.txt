@@ -1,0 +1,3 @@
+Fixed the Android on-screen keyboard not opening reliably in full-screen terminal apps.
+
+Tapping the terminal now shows the keyboard even when a TUI app is handling mouse input, so apps like vim, htop, Bubble Tea programs, and other full-screen terminal interfaces are easier to use.

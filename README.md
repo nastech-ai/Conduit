@@ -54,6 +54,11 @@ Dart implementation of the protocol, and the terminal is
 - Built-in terminal themes, font sizing, palette choices, and appearance controls.
 - Local-first storage: no account, no cloud sync, no subscription.
 
+## Contributors
+
+Conduit is improved by community contributions. See [CONTRIBUTORS.md](CONTRIBUTORS.md)
+for acknowledgements.
+
 ## Screenshots
 
 <p align="center">
