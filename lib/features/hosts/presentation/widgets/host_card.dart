@@ -29,6 +29,7 @@ class HostCard extends StatelessWidget {
       SshAuthMethod.password => Icons.password_rounded,
       SshAuthMethod.privateKey => Icons.vpn_key_outlined,
       SshAuthMethod.hardwareKey => Icons.usb_rounded,
+      SshAuthMethod.external => Icons.link_rounded,
     };
 
     return Material(
@@ -75,7 +76,7 @@ class HostCard extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${host.username}@${host.host}:${host.port}',
+                          host.endpoint,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -206,6 +207,7 @@ class HostCard extends StatelessWidget {
     SshAuthMethod.password => 'Password',
     SshAuthMethod.privateKey => 'Key',
     SshAuthMethod.hardwareKey => 'Hardware key',
+    SshAuthMethod.external => 'External',
   };
 
   String _lastConnectedLabel(DateTime last) {

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:conduit/core/theme/app_palette.dart';
 import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:flutter/material.dart';
@@ -9,14 +11,14 @@ class ThemePreferences {
     required this.palette,
     this.terminalFont = TerminalFontOption.atkynsonNerdFont,
     this.terminalFontSize = terminalFontSizeDefault,
-    this.terminalKeyboardActions = defaultTerminalKeyboardActions,
+    this.terminalKeyboardItems = defaultTerminalKeyboardItems,
   });
 
   final ThemeMode themeMode;
   final AppPalette palette;
   final TerminalFontOption terminalFont;
   final double terminalFontSize;
-  final List<TerminalKeyboardAction> terminalKeyboardActions;
+  final List<TerminalKeyboardItem> terminalKeyboardItems;
 }
 
 class ThemePreferencesRepository {
@@ -40,7 +42,7 @@ class ThemePreferencesRepository {
       key: _terminalKeyboardActionsKey,
     );
     final terminalFontSize = double.tryParse(rawTerminalFontSize ?? '');
-    final terminalKeyboardActions = _parseTerminalKeyboardActions(
+    final terminalKeyboardItems = _parseTerminalKeyboardItems(
       rawTerminalKeyboardActions,
     );
 
@@ -60,7 +62,7 @@ class ThemePreferencesRepository {
       terminalFontSize: terminalFontSize == null
           ? terminalFontSizeDefault
           : clampTerminalFontSize(terminalFontSize),
-      terminalKeyboardActions: terminalKeyboardActions,
+      terminalKeyboardItems: terminalKeyboardItems,
     );
   }
 
@@ -77,19 +79,53 @@ class ThemePreferencesRepository {
     );
     await _storage.write(
       key: _terminalKeyboardActionsKey,
-      value: preferences.terminalKeyboardActions
-          .map((action) => action.name)
-          .join(','),
+      value: jsonEncode(
+        preferences.terminalKeyboardItems.map(_keyboardItemToJson).toList(),
+      ),
     );
   }
 
-  List<TerminalKeyboardAction> _parseTerminalKeyboardActions(String? raw) {
+  List<TerminalKeyboardItem> _parseTerminalKeyboardItems(String? raw) {
     if (raw == null || raw.trim().isEmpty) {
-      return defaultTerminalKeyboardActions;
+      return defaultTerminalKeyboardItems;
+    }
+
+    final trimmed = raw.trim();
+    if (trimmed.startsWith('[')) {
+      try {
+        final decoded = jsonDecode(trimmed);
+        if (decoded is List) {
+          final items = <TerminalKeyboardItem>[];
+          final seenBuiltIns = <TerminalKeyboardAction>{};
+          for (final rawItem in decoded) {
+            if (rawItem is! Map) {
+              continue;
+            }
+            final item = _keyboardItemFromJson(
+              Map<String, Object?>.from(rawItem),
+            );
+            if (item == null) {
+              continue;
+            }
+            final action = item.action;
+            if (item.kind == TerminalKeyboardItemKind.builtIn &&
+                action != null &&
+                !seenBuiltIns.add(action)) {
+              continue;
+            }
+            items.add(item);
+          }
+          if (items.isNotEmpty) {
+            return items;
+          }
+        }
+      } catch (_) {
+        return defaultTerminalKeyboardItems;
+      }
     }
 
     final actions = <TerminalKeyboardAction>[];
-    for (final name in raw.split(',')) {
+    for (final name in trimmed.split(',')) {
       TerminalKeyboardAction? action;
       for (final candidate in TerminalKeyboardAction.values) {
         if (candidate.name == name.trim()) {
@@ -104,9 +140,78 @@ class ThemePreferencesRepository {
 
     if (actions.isEmpty ||
         _sameActions(actions, legacyDefaultTerminalKeyboardActions)) {
-      return defaultTerminalKeyboardActions;
+      return defaultTerminalKeyboardItems;
     }
-    return actions;
+    return [for (final action in actions) TerminalKeyboardItem.builtIn(action)];
+  }
+
+  Map<String, Object?> _keyboardItemToJson(TerminalKeyboardItem item) {
+    return {
+      'id': item.id,
+      'kind': item.kind.name,
+      'label': item.label,
+      'action': item.action?.name,
+      'text': item.text,
+      'controlKey': item.controlKey,
+      'submit': item.submit,
+    };
+  }
+
+  TerminalKeyboardItem? _keyboardItemFromJson(Map<String, Object?> json) {
+    final kindName = json['kind'];
+    final id = json['id'];
+    if (kindName is! String || id is! String) {
+      return null;
+    }
+    final kind = TerminalKeyboardItemKind.values
+        .where((candidate) => candidate.name == kindName)
+        .firstOrNull;
+    if (kind == null) {
+      return null;
+    }
+    switch (kind) {
+      case TerminalKeyboardItemKind.builtIn:
+        final actionName = json['action'];
+        if (actionName is! String) {
+          return null;
+        }
+        final action = TerminalKeyboardAction.values
+            .where((candidate) => candidate.name == actionName)
+            .firstOrNull;
+        return action == null ? null : TerminalKeyboardItem.builtIn(action);
+      case TerminalKeyboardItemKind.customText:
+        final label = json['label'];
+        final text = json['text'];
+        if (id.trim().isEmpty ||
+            label is! String ||
+            text is! String ||
+            label.trim().isEmpty) {
+          return null;
+        }
+        return TerminalKeyboardItem(
+          id: id,
+          kind: kind,
+          label: label,
+          text: text,
+          submit: json['submit'] == true,
+        );
+      case TerminalKeyboardItemKind.customControl:
+        final label = json['label'];
+        final controlKey = json['controlKey'];
+        if (id.trim().isEmpty ||
+            label is! String ||
+            controlKey is! String ||
+            label.trim().isEmpty ||
+            !terminalKeyboardControlKeys.contains(controlKey)) {
+          return null;
+        }
+        return TerminalKeyboardItem(
+          id: id,
+          kind: kind,
+          label: label,
+          controlKey: controlKey,
+        );
+    }
   }
 
   bool _sameActions(

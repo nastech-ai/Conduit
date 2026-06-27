@@ -82,7 +82,6 @@ class HostConnectionSection extends StatelessWidget {
             prefixIcon: Icon(Icons.person_outline_rounded),
           ),
           textInputAction: TextInputAction.next,
-          validator: requiredValidator,
         ),
       ],
     );
@@ -98,6 +97,7 @@ class HostAuthenticationSection extends StatelessWidget {
     required this.showPassword,
     required this.showPassphrase,
     required this.forwardAgent,
+    required this.externalAuthOfferKey,
     required this.keyInspection,
     required this.requiredValidator,
     required this.keyMaterialValidator,
@@ -109,6 +109,7 @@ class HostAuthenticationSection extends StatelessWidget {
     required this.onGenerateKey,
     required this.onViewPublicKey,
     required this.onForwardAgentChanged,
+    required this.onExternalAuthOfferKeyChanged,
     super.key,
   });
 
@@ -119,6 +120,7 @@ class HostAuthenticationSection extends StatelessWidget {
   final bool showPassword;
   final bool showPassphrase;
   final bool forwardAgent;
+  final bool externalAuthOfferKey;
   final SshKeyInspection? keyInspection;
   final FormFieldValidator<String> requiredValidator;
   final FormFieldValidator<String> keyMaterialValidator;
@@ -130,6 +132,7 @@ class HostAuthenticationSection extends StatelessWidget {
   final VoidCallback onGenerateKey;
   final VoidCallback onViewPublicKey;
   final ValueChanged<bool> onForwardAgentChanged;
+  final ValueChanged<bool> onExternalAuthOfferKeyChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -140,6 +143,23 @@ class HostAuthenticationSection extends StatelessWidget {
       children: [
         AuthMethodPicker(value: authMethod, onChanged: onAuthMethodChanged),
         const SizedBox(height: 14),
+        if (authMethod == SshAuthMethod.external) ...[
+          AuthExplainer(method: authMethod),
+          const SizedBox(height: 10),
+          Material(
+            color: Colors.transparent,
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Offer temporary public key'),
+              subtitle: const Text(
+                'Helps servers that authenticate externally but still expect '
+                'a public-key login attempt.',
+              ),
+              value: externalAuthOfferKey,
+              onChanged: onExternalAuthOfferKeyChanged,
+            ),
+          ),
+        ],
         if (authMethod == SshAuthMethod.password)
           TextFormField(
             controller: passwordController,
@@ -255,6 +275,7 @@ class HostAdvancedSection extends StatelessWidget {
     required this.tagFocusNode,
     required this.timeoutController,
     required this.moshLocaleController,
+    required this.tmuxSessionNameController,
     required this.tmuxStartDirectoryController,
     required this.useMosh,
     required this.predictiveEchoEnabled,
@@ -275,6 +296,7 @@ class HostAdvancedSection extends StatelessWidget {
   final FocusNode tagFocusNode;
   final TextEditingController timeoutController;
   final TextEditingController moshLocaleController;
+  final TextEditingController tmuxSessionNameController;
   final TextEditingController tmuxStartDirectoryController;
   final bool useMosh;
   final bool predictiveEchoEnabled;
@@ -362,13 +384,26 @@ class HostAdvancedSection extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
             title: const Text('Start tmux on connect'),
             subtitle: const Text(
-              'Attach to an existing tmux session, or create one if needed.',
+              'Attach to the named tmux session, or create it if needed.',
             ),
             value: startTmuxOnConnect,
             onChanged: onStartTmuxOnConnectChanged,
           ),
         ),
         if (startTmuxOnConnect) ...[
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: tmuxSessionNameController,
+            decoration: const InputDecoration(
+              labelText: 'Tmux session name',
+              hintText: defaultTmuxSessionName,
+              helperText: 'Conduit attaches to this session, or creates it.',
+              prefixIcon: Icon(Icons.view_stream_outlined),
+            ),
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.next,
+          ),
           const SizedBox(height: 16),
           TextFormField(
             controller: tmuxStartDirectoryController,

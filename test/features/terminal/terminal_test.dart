@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:cbor/cbor.dart';
 import 'package:conduit/core/app_failure.dart';
+import 'package:conduit/core/theme/app_palette.dart';
+import 'package:conduit/core/theme/terminal_appearance.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
 import 'package:conduit/features/terminal/data/openssh_security_key_signer.dart';
 import 'package:conduit/features/terminal/data/secure_host_key_verifier.dart';
@@ -10,18 +12,48 @@ import 'package:conduit/features/terminal/domain/host_key_prompt.dart';
 import 'package:conduit/features/terminal/domain/host_key_verifier.dart';
 import 'package:conduit/features/terminal/domain/security_key_interaction.dart';
 import 'package:conduit/features/terminal/presentation/host_key_prompt_coordinator.dart';
+import 'package:conduit/features/terminal/presentation/terminal_keyboard_bar.dart';
+import 'package:conduit/features/terminal/presentation/terminal_keyboard_controller.dart';
 import 'package:conduit/features/terminal/presentation/terminal_session_controller.dart';
 import 'package:conduit_vt/conduit_vt.dart';
 import 'package:crypto/crypto.dart' as crypto;
 import 'package:dartssh2/dartssh2.dart';
 import 'package:fido2/fido2_client.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/test_doubles.dart';
 
 void main() {
   group('TerminalSessionController', () {
+    test('builds quoted tmux startup command when enabled', () {
+      final controller = TerminalSessionController(
+        host: buildHost('tmux-create').copyWith(
+          startTmuxOnConnect: true,
+          tmuxSessionName: 'work session',
+          tmuxStartDirectory: "~/client's app",
+        ),
+        repository: ImmediateTerminalRepository(TrackableTerminalSession()),
+      );
+      addTearDown(controller.dispose);
+
+      expect(
+        controller.buildTmuxCommandForTesting(),
+        "tmux new-session -A -s 'work session' -c '~/client'\\''s app'\r",
+      );
+    });
+
+    test('does not build a tmux startup command when disabled', () {
+      final controller = TerminalSessionController(
+        host: buildHost('tmux-off'),
+        repository: ImmediateTerminalRepository(TrackableTerminalSession()),
+      );
+      addTearDown(controller.dispose);
+
+      expect(controller.buildTmuxCommandForTesting(), isNull);
+    });
+
     test('ignores a connection that completes after disconnect', () async {
       final repository = PendingTerminalRepository();
       final session = TrackableTerminalSession();
@@ -216,6 +248,129 @@ void main() {
       expect(controller.overlays.single.erase, isTrue);
 
       controller.dispose();
+    });
+
+    testWidgets('repeats held keyboard row navigation keys', (tester) async {
+      final controller = _RecordingTerminalSessionController();
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TerminalKeyboardBar(
+              controller: controller,
+              focusNode: focusNode,
+              palette: AppPalette.catppuccin,
+              brightness: Brightness.dark,
+              items: const [
+                TerminalKeyboardItem.builtIn(TerminalKeyboardAction.arrowDown),
+              ],
+              fullscreen: false,
+              onToggleFullscreen: () {},
+              onEnterTmuxScrollMode: () {},
+              tmuxPrefixKey: TmuxPrefixKey.controlB,
+            ),
+          ),
+        ),
+      );
+
+      final key = find.byIcon(Icons.keyboard_arrow_down_rounded);
+      final gesture = await tester.press(key);
+
+      expect(controller.sentKeys, [TerminalKey.arrowDown]);
+
+      await tester.pump(const Duration(milliseconds: 249));
+      expect(controller.sentKeys, [TerminalKey.arrowDown]);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(controller.sentKeys, [
+        TerminalKey.arrowDown,
+        TerminalKey.arrowDown,
+      ]);
+
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(controller.sentKeys, [
+        TerminalKey.arrowDown,
+        TerminalKey.arrowDown,
+        TerminalKey.arrowDown,
+      ]);
+
+      await gesture.up();
+      await tester.pump(const Duration(milliseconds: 180));
+      expect(controller.sentKeys, [
+        TerminalKey.arrowDown,
+        TerminalKey.arrowDown,
+        TerminalKey.arrowDown,
+      ]);
+    });
+
+    testWidgets('sends custom keyboard row items', (tester) async {
+      final controller = _RecordingTerminalSessionController();
+      final focusNode = FocusNode();
+      addTearDown(focusNode.dispose);
+      addTearDown(controller.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: TerminalKeyboardBar(
+              controller: controller,
+              focusNode: focusNode,
+              palette: AppPalette.catppuccin,
+              brightness: Brightness.dark,
+              items: const [
+                TerminalKeyboardItem(
+                  id: 'custom:text',
+                  kind: TerminalKeyboardItemKind.customText,
+                  label: 'gs',
+                  text: 'git status',
+                  submit: true,
+                ),
+                TerminalKeyboardItem(
+                  id: 'custom:ctrl',
+                  kind: TerminalKeyboardItemKind.customControl,
+                  label: 'C-a',
+                  controlKey: 'A',
+                ),
+              ],
+              fullscreen: false,
+              onToggleFullscreen: () {},
+              onEnterTmuxScrollMode: () {},
+              tmuxPrefixKey: TmuxPrefixKey.controlB,
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('gs'));
+      await tester.tap(find.text('C-a'));
+
+      expect(controller.sentText, ['git status\r']);
+      expect(controller.sentControlKeys, [TerminalKey.keyA]);
+    });
+
+    test('keyboard input clears toggled row modifiers after one key', () {
+      final handler = _RecordingInputHandler();
+      final keyboard = TerminalKeyboardController(handler)..ctrl = true;
+      final terminal = Terminal();
+
+      final output = keyboard(
+        TerminalKeyboardEvent(
+          key: TerminalKey.keyC,
+          shift: false,
+          ctrl: false,
+          alt: false,
+          state: terminal,
+          altBuffer: false,
+          platform: TerminalTargetPlatform.unknown,
+        ),
+      );
+
+      expect(output, 'ok');
+      expect(handler.events.single.ctrl, isTrue);
+      expect(keyboard.ctrl, isFalse);
     });
 
     test('can disable predictive overlays while keeping mosh input', () async {
@@ -492,6 +647,48 @@ void main() {
 
       expect(identities, hasLength(1));
       expect(identities!.single, isA<OpenSSHSecurityKeyPair>());
+    });
+  });
+
+  group('SshClientFactory external auth', () {
+    test('uses only an ephemeral public key identity', () {
+      final factory = SshClientFactory(NoopVerifier());
+      const host = SavedHost(
+        id: 'id',
+        name: 'Host',
+        host: 'example.com',
+        port: 22,
+        username: 'root',
+        authMethod: SshAuthMethod.external,
+        forwardAgent: true,
+      );
+
+      final identities = factory.identitiesForTesting(host);
+
+      expect(identities, hasLength(1));
+      expect(identities!.single, isA<OpenSSHEd25519KeyPair>());
+      expect(factory.agentHandlerForTesting(host), isNull);
+      expect(factory.passwordRequestForTesting(host), isNull);
+      expect(factory.userInfoRequestForTesting(host), isNull);
+    });
+
+    test('can use pure none auth without an ephemeral identity', () {
+      final factory = SshClientFactory(NoopVerifier());
+      const host = SavedHost(
+        id: 'id',
+        name: 'Host',
+        host: 'example.com',
+        port: 22,
+        username: 'root',
+        authMethod: SshAuthMethod.external,
+        externalAuthOfferKey: false,
+        forwardAgent: true,
+      );
+
+      expect(factory.identitiesForTesting(host), isNull);
+      expect(factory.agentHandlerForTesting(host), isNull);
+      expect(factory.passwordRequestForTesting(host), isNull);
+      expect(factory.userInfoRequestForTesting(host), isNull);
     });
   });
 
@@ -816,4 +1013,44 @@ void main() {
       },
     );
   });
+}
+
+class _RecordingTerminalSessionController extends TerminalSessionController {
+  _RecordingTerminalSessionController()
+    : super(
+        host: buildHost('repeat'),
+        repository: NoNetworkTerminalRepository(),
+      );
+
+  final List<TerminalKey> sentKeys = <TerminalKey>[];
+  final List<TerminalKey> sentControlKeys = <TerminalKey>[];
+  final List<String> sentText = <String>[];
+
+  @override
+  void sendKey(TerminalKey key) {
+    sentKeys.add(key);
+    keyboard.clearModifiers();
+  }
+
+  @override
+  void sendControl(TerminalKey key) {
+    sentControlKeys.add(key);
+    keyboard.clearModifiers();
+  }
+
+  @override
+  void sendText(String text) {
+    sentText.add(text);
+    keyboard.clearModifiers();
+  }
+}
+
+class _RecordingInputHandler extends TerminalInputHandler {
+  final List<TerminalKeyboardEvent> events = <TerminalKeyboardEvent>[];
+
+  @override
+  String? call(TerminalKeyboardEvent event) {
+    events.add(event);
+    return 'ok';
+  }
 }

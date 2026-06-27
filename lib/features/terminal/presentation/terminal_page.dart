@@ -189,7 +189,7 @@ class _TerminalPageState extends State<TerminalPage> {
                       focusNode: _focusNode,
                       palette: palette,
                       brightness: brightness,
-                      actions: widget.themeController.terminalKeyboardActions,
+                      items: widget.themeController.terminalKeyboardItems,
                       fullscreen: _fullscreen,
                       onToggleFullscreen: _toggleFullscreen,
                       tmuxPrefixKey: activeSession.host.tmuxPrefixKey,

@@ -12,15 +12,15 @@ class ThemeController extends ChangeNotifier {
   AppPalette _palette = AppPalette.synthwave;
   TerminalFontOption _terminalFont = TerminalFontOption.atkynsonNerdFont;
   double _terminalFontSize = terminalFontSizeDefault;
-  List<TerminalKeyboardAction> _terminalKeyboardActions =
-      defaultTerminalKeyboardActions;
+  List<TerminalKeyboardItem> _terminalKeyboardItems =
+      defaultTerminalKeyboardItems;
 
   ThemeMode get themeMode => _themeMode;
   AppPalette get palette => _palette;
   TerminalFontOption get terminalFont => _terminalFont;
   double get terminalFontSize => _terminalFontSize;
-  List<TerminalKeyboardAction> get terminalKeyboardActions =>
-      List.unmodifiable(_terminalKeyboardActions);
+  List<TerminalKeyboardItem> get terminalKeyboardItems =>
+      List.unmodifiable(_terminalKeyboardItems);
 
   Future<void> load() async {
     final preferences = await _repository.load();
@@ -28,7 +28,7 @@ class ThemeController extends ChangeNotifier {
     _palette = preferences.palette;
     _terminalFont = preferences.terminalFont;
     _terminalFontSize = preferences.terminalFontSize;
-    _terminalKeyboardActions = List.of(preferences.terminalKeyboardActions);
+    _terminalKeyboardItems = List.of(preferences.terminalKeyboardItems);
     notifyListeners();
   }
 
@@ -69,29 +69,32 @@ class ThemeController extends ChangeNotifier {
     await _save();
   }
 
-  Future<void> setTerminalKeyboardActions(
-    List<TerminalKeyboardAction> actions,
+  Future<void> setTerminalKeyboardItems(
+    List<TerminalKeyboardItem> items,
   ) async {
     final seen = <TerminalKeyboardAction>{};
-    final normalized = <TerminalKeyboardAction>[];
-    for (final action in actions) {
-      if (seen.add(action)) {
-        normalized.add(action);
+    final normalized = <TerminalKeyboardItem>[];
+    for (final item in items) {
+      final action = item.action;
+      if (item.kind == TerminalKeyboardItemKind.builtIn && action != null) {
+        if (seen.add(action)) {
+          normalized.add(item);
+        }
+      } else {
+        normalized.add(item);
       }
     }
-    final next = normalized.isEmpty
-        ? defaultTerminalKeyboardActions
-        : normalized;
-    if (_listEquals(_terminalKeyboardActions, next)) {
+    final next = normalized.isEmpty ? defaultTerminalKeyboardItems : normalized;
+    if (_listEquals(_terminalKeyboardItems, next)) {
       return;
     }
-    _terminalKeyboardActions = List.of(next);
+    _terminalKeyboardItems = List.of(next);
     notifyListeners();
     await _save();
   }
 
-  Future<void> resetTerminalKeyboardActions() {
-    return setTerminalKeyboardActions(defaultTerminalKeyboardActions);
+  Future<void> resetTerminalKeyboardItems() {
+    return setTerminalKeyboardItems(defaultTerminalKeyboardItems);
   }
 
   Future<void> _save() {
@@ -101,7 +104,7 @@ class ThemeController extends ChangeNotifier {
         palette: _palette,
         terminalFont: _terminalFont,
         terminalFontSize: _terminalFontSize,
-        terminalKeyboardActions: _terminalKeyboardActions,
+        terminalKeyboardItems: _terminalKeyboardItems,
       ),
     );
   }

@@ -56,6 +56,68 @@ enum TerminalKeyboardAction {
   tmuxMenu,
 }
 
+enum TerminalKeyboardItemKind { builtIn, customText, customControl }
+
+class TerminalKeyboardItem {
+  const TerminalKeyboardItem({
+    required this.id,
+    required this.kind,
+    required this.label,
+    this.action,
+    this.text,
+    this.controlKey,
+    this.submit = false,
+  });
+
+  const TerminalKeyboardItem.builtIn(TerminalKeyboardAction this.action)
+    : id = '',
+      kind = TerminalKeyboardItemKind.builtIn,
+      label = '',
+      text = null,
+      controlKey = null,
+      submit = false;
+
+  final String id;
+  final TerminalKeyboardItemKind kind;
+  final String label;
+  final TerminalKeyboardAction? action;
+  final String? text;
+  final String? controlKey;
+  final bool submit;
+
+  String get stableId {
+    final action = this.action;
+    if (kind == TerminalKeyboardItemKind.builtIn && action != null) {
+      return 'builtIn:${action.name}';
+    }
+    return id;
+  }
+
+  String get displayLabel {
+    final action = this.action;
+    if (kind == TerminalKeyboardItemKind.builtIn && action != null) {
+      return action.label;
+    }
+    return label;
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is TerminalKeyboardItem &&
+        other.id == id &&
+        other.kind == kind &&
+        other.label == label &&
+        other.action == action &&
+        other.text == text &&
+        other.controlKey == controlKey &&
+        other.submit == submit;
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, kind, label, action, text, controlKey, submit);
+}
+
 const defaultTerminalKeyboardActions = [
   TerminalKeyboardAction.escape,
   TerminalKeyboardAction.control,
@@ -113,6 +175,68 @@ const legacyDefaultTerminalKeyboardActions = [
 const tmuxTerminalKeyboardActions = [
   TerminalKeyboardAction.tmuxPrefix,
   TerminalKeyboardAction.tmuxMenu,
+];
+
+const defaultTerminalKeyboardItems = [
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.escape),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.control),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.alt),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.tab),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.arrowUp),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.arrowDown),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.arrowLeft),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.arrowRight),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.slash),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.dash),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.pipe),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.paste),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.controlC),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.controlD),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.controlZ),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.controlL),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.colon),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.home),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.end),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.pageUp),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.pageDown),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.functionKeys),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.tmuxPrefix),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.tmuxMenu),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.fullscreen),
+];
+
+const tmuxTerminalKeyboardItems = [
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.tmuxPrefix),
+  TerminalKeyboardItem.builtIn(TerminalKeyboardAction.tmuxMenu),
+];
+
+const terminalKeyboardControlKeys = [
+  'A',
+  'B',
+  'C',
+  'D',
+  'E',
+  'F',
+  'G',
+  'H',
+  'I',
+  'J',
+  'K',
+  'L',
+  'M',
+  'N',
+  'O',
+  'P',
+  'Q',
+  'R',
+  'S',
+  'T',
+  'U',
+  'V',
+  'W',
+  'X',
+  'Y',
+  'Z',
 ];
 
 extension TerminalKeyboardActionDetails on TerminalKeyboardAction {

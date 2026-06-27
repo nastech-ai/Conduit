@@ -1,8 +1,13 @@
-enum SshAuthMethod { password, privateKey, hardwareKey }
+enum SshAuthMethod { password, privateKey, hardwareKey, external }
 
 enum TmuxPrefixKey { controlB, controlA }
 
 const defaultTmuxPrefixKey = TmuxPrefixKey.controlB;
+const defaultTmuxSessionName = 'conduit';
+
+bool _parseStartTmuxOnConnect(Map<String, Object?> json) {
+  return json['startTmuxOnConnect'] as bool? ?? false;
+}
 
 extension TmuxPrefixKeyDetails on TmuxPrefixKey {
   String get label => switch (this) {
@@ -22,6 +27,7 @@ class SavedHost {
     this.password = '',
     this.privateKey = '',
     this.passphrase = '',
+    this.externalAuthOfferKey = true,
     this.forwardAgent = false,
     this.tags = const [],
     this.connectionTimeoutSeconds = 12,
@@ -30,6 +36,7 @@ class SavedHost {
     this.predictiveEchoEnabled = false,
     this.startTmuxOnConnect = false,
     this.tmuxPrefixKey = defaultTmuxPrefixKey,
+    this.tmuxSessionName = defaultTmuxSessionName,
     this.tmuxStartDirectory = '',
     this.lastConnectedAt,
   });
@@ -43,6 +50,7 @@ class SavedHost {
   final String password;
   final String privateKey;
   final String passphrase;
+  final bool externalAuthOfferKey;
   final bool forwardAgent;
   final List<String> tags;
   final int connectionTimeoutSeconds;
@@ -51,6 +59,7 @@ class SavedHost {
   final bool predictiveEchoEnabled;
   final bool startTmuxOnConnect;
   final TmuxPrefixKey tmuxPrefixKey;
+  final String tmuxSessionName;
   final String tmuxStartDirectory;
   final DateTime? lastConnectedAt;
 
@@ -60,16 +69,23 @@ class SavedHost {
       host.trim().isNotEmpty &&
       port > 0 &&
       port <= 65535 &&
-      username.trim().isNotEmpty &&
       connectionTimeoutSeconds >= 3 &&
       connectionTimeoutSeconds <= 120 &&
       switch (authMethod) {
         SshAuthMethod.password => password.isNotEmpty,
         SshAuthMethod.privateKey => privateKey.trim().isNotEmpty,
         SshAuthMethod.hardwareKey => privateKey.trim().isNotEmpty,
+        SshAuthMethod.external => true,
       };
 
-  String get endpoint => '$username@$host:$port';
+  String get endpoint {
+    final trimmedUsername = username.trim();
+    final trimmedHost = host.trim();
+    if (trimmedUsername.isEmpty) {
+      return '$trimmedHost:$port';
+    }
+    return '$trimmedUsername@$trimmedHost:$port';
+  }
 
   SavedHost copyWith({
     String? id,
@@ -81,6 +97,7 @@ class SavedHost {
     String? password,
     String? privateKey,
     String? passphrase,
+    bool? externalAuthOfferKey,
     bool? forwardAgent,
     List<String>? tags,
     int? connectionTimeoutSeconds,
@@ -89,6 +106,7 @@ class SavedHost {
     bool? predictiveEchoEnabled,
     bool? startTmuxOnConnect,
     TmuxPrefixKey? tmuxPrefixKey,
+    String? tmuxSessionName,
     String? tmuxStartDirectory,
     DateTime? lastConnectedAt,
     bool clearLastConnectedAt = false,
@@ -103,6 +121,7 @@ class SavedHost {
       password: password ?? this.password,
       privateKey: privateKey ?? this.privateKey,
       passphrase: passphrase ?? this.passphrase,
+      externalAuthOfferKey: externalAuthOfferKey ?? this.externalAuthOfferKey,
       forwardAgent: forwardAgent ?? this.forwardAgent,
       tags: tags ?? this.tags,
       connectionTimeoutSeconds:
@@ -113,6 +132,7 @@ class SavedHost {
           predictiveEchoEnabled ?? this.predictiveEchoEnabled,
       startTmuxOnConnect: startTmuxOnConnect ?? this.startTmuxOnConnect,
       tmuxPrefixKey: tmuxPrefixKey ?? this.tmuxPrefixKey,
+      tmuxSessionName: tmuxSessionName ?? this.tmuxSessionName,
       tmuxStartDirectory: tmuxStartDirectory ?? this.tmuxStartDirectory,
       lastConnectedAt: clearLastConnectedAt
           ? null
@@ -131,6 +151,7 @@ class SavedHost {
       'password': password,
       'privateKey': privateKey,
       'passphrase': passphrase,
+      'externalAuthOfferKey': externalAuthOfferKey,
       'forwardAgent': forwardAgent,
       'tags': tags,
       'connectionTimeoutSeconds': connectionTimeoutSeconds,
@@ -139,6 +160,7 @@ class SavedHost {
       'predictiveEchoEnabled': predictiveEchoEnabled,
       'startTmuxOnConnect': startTmuxOnConnect,
       'tmuxPrefixKey': tmuxPrefixKey.name,
+      'tmuxSessionName': tmuxSessionName,
       'tmuxStartDirectory': tmuxStartDirectory,
       'lastConnectedAt': lastConnectedAt?.toIso8601String(),
     };
@@ -167,6 +189,7 @@ class SavedHost {
       password: json['password'] as String? ?? '',
       privateKey: json['privateKey'] as String? ?? '',
       passphrase: json['passphrase'] as String? ?? '',
+      externalAuthOfferKey: json['externalAuthOfferKey'] as bool? ?? true,
       forwardAgent: json['forwardAgent'] as bool? ?? false,
       tags: tags,
       connectionTimeoutSeconds: json['connectionTimeoutSeconds'] as int? ?? 12,
@@ -175,11 +198,15 @@ class SavedHost {
           ? (json['moshLocale'] as String).trim()
           : 'C.UTF-8',
       predictiveEchoEnabled: json['predictiveEchoEnabled'] as bool? ?? false,
-      startTmuxOnConnect: json['startTmuxOnConnect'] as bool? ?? false,
+      startTmuxOnConnect: _parseStartTmuxOnConnect(json),
       tmuxPrefixKey: TmuxPrefixKey.values.firstWhere(
         (key) => key.name == json['tmuxPrefixKey'],
         orElse: () => defaultTmuxPrefixKey,
       ),
+      tmuxSessionName:
+          (json['tmuxSessionName'] as String?)?.trim().isNotEmpty == true
+          ? (json['tmuxSessionName'] as String).trim()
+          : defaultTmuxSessionName,
       tmuxStartDirectory: (json['tmuxStartDirectory'] as String?)?.trim() ?? '',
       lastConnectedAt: lastConnectedAtRaw == null
           ? null

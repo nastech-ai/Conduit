@@ -212,6 +212,8 @@ class _TerminalAppearanceControls extends StatelessWidget {
               fontFamily: controller.terminalFont.fontFamily,
               fontSize: controller.terminalFontSize,
               color: colorScheme.onSurface,
+              letterSpacing: 0,
+              height: 1.2,
             ),
           ),
         ),
@@ -231,7 +233,7 @@ class _TerminalAppearanceControls extends StatelessWidget {
                 child: Text('Key row', style: theme.textTheme.labelLarge),
               ),
               Text(
-                '${controller.terminalKeyboardActions.length}',
+                '${controller.terminalKeyboardItems.length}',
                 style: theme.textTheme.labelLarge?.copyWith(
                   color: colorScheme.primary,
                   fontWeight: FontWeight.w800,
@@ -259,164 +261,383 @@ Future<void> _showKeyboardActionsEditor(
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    builder: (context) {
-      var selected = List<TerminalKeyboardAction>.of(
-        controller.terminalKeyboardActions,
-      );
+    builder: (context) => _KeyboardActionsEditor(controller: controller),
+  );
+}
 
-      return StatefulBuilder(
-        builder: (context, setState) {
-          final theme = Theme.of(context);
-          final colorScheme = theme.colorScheme;
-          final available = TerminalKeyboardAction.values
-              .where((action) => !selected.contains(action))
-              .toList(growable: false);
+class _KeyboardActionsEditor extends StatefulWidget {
+  const _KeyboardActionsEditor({required this.controller});
 
-          return SafeArea(
-            bottom: shouldApplyBottomSafeArea(context),
-            child: SizedBox(
-              height: MediaQuery.sizeOf(context).height * 0.82,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+  final ThemeController controller;
+
+  @override
+  State<_KeyboardActionsEditor> createState() => _KeyboardActionsEditorState();
+}
+
+class _KeyboardActionsEditorState extends State<_KeyboardActionsEditor> {
+  late List<TerminalKeyboardItem> _selected;
+  final _listController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = List<TerminalKeyboardItem>.of(
+      widget.controller.terminalKeyboardItems,
+    );
+  }
+
+  @override
+  void dispose() {
+    _listController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final selectedActions = _selected
+        .map((item) => item.action)
+        .whereType<TerminalKeyboardAction>()
+        .toSet();
+    final available = TerminalKeyboardAction.values
+        .where((action) => !selectedActions.contains(action))
+        .toList(growable: false);
+
+    return SafeArea(
+      bottom: shouldApplyBottomSafeArea(context),
+      child: SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.82,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 10, 8),
+              child: Row(
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 14, 10, 8),
-                    child: Row(
-                      children: [
-                        Text('Key Row', style: theme.textTheme.titleLarge),
-                        const Spacer(),
-                        TextButton(
-                          onPressed: () => setState(() {
-                            selected = List.of(defaultTerminalKeyboardActions);
-                          }),
-                          child: const Text('Reset'),
-                        ),
-                        TextButton(
-                          onPressed: () => setState(() {
-                            selected.addAll(
-                              tmuxTerminalKeyboardActions.where(
-                                (action) => !selected.contains(action),
-                              ),
-                            );
-                          }),
-                          child: const Text('Tmux'),
-                        ),
-                        IconButton(
-                          tooltip: 'Close',
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close_rounded),
-                        ),
-                      ],
-                    ),
+                  Text(
+                    'Key Row (${_selected.length})',
+                    style: theme.textTheme.titleLarge,
                   ),
-                  Expanded(
-                    child: ReorderableListView.builder(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                      itemCount: selected.length,
-                      proxyDecorator: (child, index, animation) {
-                        return AnimatedBuilder(
-                          animation: animation,
-                          builder: (context, child) {
-                            final elevation = Curves.easeOut.transform(
-                              animation.value,
-                            );
-                            return Transform.scale(
-                              scale: 1 + (0.015 * elevation),
-                              child: Material(
-                                color: Colors.transparent,
-                                elevation: 8 * elevation,
-                                shadowColor: Colors.black.withValues(
-                                  alpha: 0.22,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                                child: child,
-                              ),
-                            );
-                          },
-                          child: child,
-                        );
-                      },
-                      onReorderItem: (oldIndex, newIndex) {
-                        setState(() {
-                          final action = selected.removeAt(oldIndex);
-                          selected.insert(newIndex, action);
-                        });
-                      },
-                      itemBuilder: (context, index) {
-                        final action = selected[index];
-                        return Card(
-                          key: ValueKey(action),
-                          margin: const EdgeInsets.symmetric(vertical: 4),
-                          child: ListTile(
-                            leading: Icon(_keyboardActionIcon(action)),
-                            title: Text(action.label),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  tooltip: 'Remove',
-                                  onPressed: selected.length == 1
-                                      ? null
-                                      : () => setState(() {
-                                          selected.remove(action);
-                                        }),
-                                  icon: const Icon(Icons.remove_circle_outline),
-                                ),
-                                ReorderableDragStartListener(
-                                  index: index,
-                                  child: const Padding(
-                                    padding: EdgeInsets.all(8),
-                                    child: Icon(Icons.drag_handle_rounded),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                  const Spacer(),
+                  TextButton(onPressed: _reset, child: const Text('Reset')),
+                  TextButton(onPressed: _addTmux, child: const Text('Tmux')),
+                  IconButton(
+                    tooltip: 'Close',
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.close_rounded),
                   ),
-                  if (available.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
-                      child: Wrap(
-                        spacing: 7,
-                        runSpacing: 7,
-                        children: [
-                          for (final action in available)
-                            ActionChip(
-                              avatar: Icon(
-                                _keyboardActionIcon(action),
-                                size: 16,
-                              ),
-                              label: Text(action.label),
-                              onPressed: () => setState(() {
-                                selected.add(action);
-                              }),
-                            ),
-                        ],
-                      ),
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
-                    child: FilledButton.icon(
-                      onPressed: () async {
-                        await controller.setTerminalKeyboardActions(selected);
-                        if (context.mounted) Navigator.of(context).pop();
-                      },
-                      icon: const Icon(Icons.check_rounded),
-                      label: const Text('Save row'),
-                    ),
-                  ),
-                  Container(height: 1, color: colorScheme.outlineVariant),
                 ],
               ),
             ),
-          );
-        },
-      );
-    },
+            Expanded(
+              child: ReorderableListView.builder(
+                scrollController: _listController,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                itemCount: _selected.length,
+                proxyDecorator: _proxyDecorator,
+                onReorderItem: _reorder,
+                itemBuilder: _buildItem,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 4, 18, 12),
+              child: Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  for (final action in available)
+                    ActionChip(
+                      avatar: Icon(_keyboardActionIcon(action), size: 16),
+                      label: Text(action.label),
+                      onPressed: () => _addBuiltIn(action),
+                    ),
+                  ActionChip(
+                    avatar: const Icon(Icons.add_rounded, size: 16),
+                    label: const Text('Custom'),
+                    onPressed: _addCustom,
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(18, 6, 18, 18),
+              child: FilledButton.icon(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.check_rounded),
+                label: const Text('Done'),
+              ),
+            ),
+            Container(height: 1, color: colorScheme.outlineVariant),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildItem(BuildContext context, int index) {
+    final item = _selected[index];
+    return Card(
+      key: ValueKey(item.stableId),
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: ListTile(
+        leading: Icon(_keyboardItemIcon(item)),
+        title: Text(item.displayLabel),
+        subtitle: _keyboardItemSubtitle(item),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'Remove',
+              onPressed: _selected.length == 1 ? null : () => _remove(index),
+              icon: const Icon(Icons.remove_circle_outline),
+            ),
+            ReorderableDragStartListener(
+              index: index,
+              child: const Padding(
+                padding: EdgeInsets.all(8),
+                child: Icon(Icons.drag_handle_rounded),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _proxyDecorator(Widget child, int index, Animation<double> animation) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, child) {
+        final elevation = Curves.easeOut.transform(animation.value);
+        return Transform.scale(
+          scale: 1 + (0.015 * elevation),
+          child: Material(
+            color: Colors.transparent,
+            elevation: 8 * elevation,
+            shadowColor: Colors.black.withValues(alpha: 0.22),
+            borderRadius: BorderRadius.circular(12),
+            child: child,
+          ),
+        );
+      },
+      child: child,
+    );
+  }
+
+  Future<void> _setSelected(List<TerminalKeyboardItem> next) async {
+    setState(() {
+      _selected = next;
+    });
+    await widget.controller.setTerminalKeyboardItems(next);
+  }
+
+  Future<void> _reset() {
+    return _setSelected(List.of(defaultTerminalKeyboardItems));
+  }
+
+  Future<void> _addTmux() {
+    final selectedActions = _selected
+        .map((item) => item.action)
+        .whereType<TerminalKeyboardAction>()
+        .toSet();
+    return _setSelected([
+      ..._selected,
+      ...tmuxTerminalKeyboardItems.where(
+        (item) => !selectedActions.contains(item.action),
+      ),
+    ]);
+  }
+
+  Future<void> _addBuiltIn(TerminalKeyboardAction action) {
+    return _setSelected([..._selected, TerminalKeyboardItem.builtIn(action)]);
+  }
+
+  Future<void> _addCustom() async {
+    final item = await _showCustomKeyboardItemDialog(context);
+    if (item == null || !mounted) {
+      return;
+    }
+    await _setSelected([item, ..._selected]);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_listController.hasClients) {
+        _listController.jumpTo(0);
+      }
+    });
+  }
+
+  Future<void> _remove(int index) {
+    return _setSelected([
+      ..._selected.take(index),
+      ..._selected.skip(index + 1),
+    ]);
+  }
+
+  Future<void> _reorder(int oldIndex, int newIndex) {
+    final next = List<TerminalKeyboardItem>.of(_selected);
+    final item = next.removeAt(oldIndex);
+    next.insert(newIndex, item);
+    return _setSelected(next);
+  }
+}
+
+Future<TerminalKeyboardItem?> _showCustomKeyboardItemDialog(
+  BuildContext context,
+) {
+  return showDialog<TerminalKeyboardItem>(
+    context: context,
+    builder: (context) => const _CustomKeyboardItemDialog(),
   );
+}
+
+class _CustomKeyboardItemDialog extends StatefulWidget {
+  const _CustomKeyboardItemDialog();
+
+  @override
+  State<_CustomKeyboardItemDialog> createState() =>
+      _CustomKeyboardItemDialogState();
+}
+
+class _CustomKeyboardItemDialogState extends State<_CustomKeyboardItemDialog> {
+  final _labelController = TextEditingController();
+  final _textController = TextEditingController();
+  var _kind = TerminalKeyboardItemKind.customText;
+  var _controlKey = terminalKeyboardControlKeys.first;
+  var _submit = false;
+
+  @override
+  void dispose() {
+    _labelController.dispose();
+    _textController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textMode = _kind == TerminalKeyboardItemKind.customText;
+    final controlMode = _kind == TerminalKeyboardItemKind.customControl;
+    return AlertDialog(
+      title: const Text('Custom key'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SegmentedButton<TerminalKeyboardItemKind>(
+              segments: const [
+                ButtonSegment(
+                  value: TerminalKeyboardItemKind.customText,
+                  label: Text('Text'),
+                ),
+                ButtonSegment(
+                  value: TerminalKeyboardItemKind.customControl,
+                  label: Text('Ctrl'),
+                ),
+              ],
+              selected: {_kind},
+              onSelectionChanged: (value) {
+                setState(() => _kind = value.single);
+              },
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _labelController,
+              decoration: const InputDecoration(
+                labelText: 'Label',
+                border: OutlineInputBorder(),
+              ),
+              textInputAction: TextInputAction.next,
+            ),
+            const SizedBox(height: 12),
+            if (textMode) ...[
+              TextField(
+                controller: _textController,
+                decoration: const InputDecoration(
+                  labelText: 'Text',
+                  border: OutlineInputBorder(),
+                ),
+                minLines: 1,
+                maxLines: 3,
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _submit,
+                onChanged: (value) {
+                  setState(() => _submit = value ?? false);
+                },
+                title: const Text('Send Enter after text'),
+              ),
+            ] else if (controlMode)
+              DropdownButtonFormField<String>(
+                initialValue: _controlKey,
+                decoration: const InputDecoration(
+                  labelText: 'Control key',
+                  border: OutlineInputBorder(),
+                ),
+                items: [
+                  for (final key in terminalKeyboardControlKeys)
+                    DropdownMenuItem(value: key, child: Text('Ctrl+$key')),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() => _controlKey = value);
+                  }
+                },
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submitItem, child: const Text('Add')),
+      ],
+    );
+  }
+
+  void _submitItem() {
+    final label = _labelController.text.trim();
+    final text = _textController.text;
+    final textMode = _kind == TerminalKeyboardItemKind.customText;
+    final controlMode = _kind == TerminalKeyboardItemKind.customControl;
+    if (label.isEmpty || (textMode && text.isEmpty)) {
+      return;
+    }
+    Navigator.of(context).pop(
+      TerminalKeyboardItem(
+        id: _newCustomKeyboardItemId(),
+        kind: _kind,
+        label: label,
+        text: textMode ? text : null,
+        controlKey: controlMode ? _controlKey : null,
+        submit: textMode && _submit,
+      ),
+    );
+  }
+}
+
+String _newCustomKeyboardItemId() {
+  return 'custom:${DateTime.now().microsecondsSinceEpoch}';
+}
+
+Widget? _keyboardItemSubtitle(TerminalKeyboardItem item) {
+  final text = switch (item.kind) {
+    TerminalKeyboardItemKind.builtIn => null,
+    TerminalKeyboardItemKind.customText =>
+      item.submit ? '${item.text ?? ''} + Enter' : item.text,
+    TerminalKeyboardItemKind.customControl => 'Ctrl+${item.controlKey}',
+  };
+  return text == null ? null : Text(text, maxLines: 1);
+}
+
+IconData _keyboardItemIcon(TerminalKeyboardItem item) {
+  return switch (item.kind) {
+    TerminalKeyboardItemKind.builtIn => _keyboardActionIcon(item.action!),
+    TerminalKeyboardItemKind.customText => Icons.text_fields_rounded,
+    TerminalKeyboardItemKind.customControl =>
+      Icons.keyboard_command_key_rounded,
+  };
 }
 
 IconData _keyboardActionIcon(TerminalKeyboardAction action) {

@@ -40,6 +40,15 @@ class AuthMethodPicker extends StatelessWidget {
           subtitle: 'Use an OpenSSH *_sk stub with USB or NFC.',
           onChanged: onChanged,
         ),
+        _AuthMethodTile(
+          value: SshAuthMethod.external,
+          groupValue: value,
+          icon: Icons.link_rounded,
+          title: 'External',
+          subtitle:
+              'Let the SSH server authenticate without saved credentials.',
+          onChanged: onChanged,
+        ),
       ],
     );
   }
@@ -155,6 +164,7 @@ class AuthExplainer extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final hardwareKey = method == SshAuthMethod.hardwareKey;
+    final external = method == SshAuthMethod.external;
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -169,7 +179,11 @@ class AuthExplainer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            hardwareKey ? Icons.usb_rounded : Icons.vpn_key_outlined,
+            external
+                ? Icons.link_rounded
+                : hardwareKey
+                ? Icons.usb_rounded
+                : Icons.vpn_key_outlined,
             size: 18,
             color: colorScheme.primary,
           ),
@@ -180,6 +194,9 @@ class AuthExplainer extends StatelessWidget {
                   ? 'Use the OpenSSH *_sk private key stub from your computer. '
                         'Conduit stores the stub, then asks your security key '
                         'to sign over USB or NFC when you connect.'
+                  : external
+                  ? 'Use this when authentication is handled outside Conduit, '
+                        'without storing a password or private key in the app.'
                   : 'Use a normal SSH private key. If the key is encrypted, '
                         'enter its passphrase below.',
               style: theme.textTheme.bodySmall?.copyWith(

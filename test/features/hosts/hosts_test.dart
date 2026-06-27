@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:conduit/features/hosts/data/dartssh2_ssh_key_service.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
+import 'package:conduit/features/hosts/domain/saved_hosts_repository.dart';
 import 'package:conduit/features/hosts/domain/ssh_key.dart';
 import 'package:conduit/features/hosts/presentation/host_form_page.dart';
 import 'package:conduit/features/hosts/presentation/hosts_controller.dart';
@@ -22,11 +23,21 @@ void main() {
       password: 'p',
     );
 
-    test('rejects empty id, name, host, username', () {
+    test('rejects empty id, name, host, but allows empty username', () {
       expect(base.copyWith(id: '').isValid, isFalse);
       expect(base.copyWith(name: ' ').isValid, isFalse);
       expect(base.copyWith(host: '').isValid, isFalse);
-      expect(base.copyWith(username: '').isValid, isFalse);
+      expect(base.copyWith(username: '').isValid, isTrue);
+      expect(
+        base
+            .copyWith(
+              username: '',
+              authMethod: SshAuthMethod.external,
+              password: '',
+            )
+            .isValid,
+        isTrue,
+      );
     });
 
     test('rejects out-of-range ports', () {
@@ -72,6 +83,10 @@ void main() {
             .isValid,
         isTrue,
       );
+      expect(
+        base.copyWith(authMethod: SshAuthMethod.external, password: '').isValid,
+        isTrue,
+      );
     });
   });
 
@@ -90,8 +105,10 @@ void main() {
         connectionTimeoutSeconds: 30,
         useMosh: true,
         moshLocale: 'en_US.UTF-8',
+        externalAuthOfferKey: false,
         startTmuxOnConnect: true,
         tmuxPrefixKey: TmuxPrefixKey.controlA,
+        tmuxSessionName: 'work',
         tmuxStartDirectory: '~/projects',
         lastConnectedAt: DateTime.parse('2025-01-02T03:04:05Z'),
       );
@@ -113,9 +130,11 @@ void main() {
       );
       expect(decoded.useMosh, original.useMosh);
       expect(decoded.moshLocale, original.moshLocale);
+      expect(decoded.externalAuthOfferKey, original.externalAuthOfferKey);
       expect(decoded.predictiveEchoEnabled, original.predictiveEchoEnabled);
       expect(decoded.startTmuxOnConnect, original.startTmuxOnConnect);
       expect(decoded.tmuxPrefixKey, original.tmuxPrefixKey);
+      expect(decoded.tmuxSessionName, original.tmuxSessionName);
       expect(decoded.tmuxStartDirectory, original.tmuxStartDirectory);
       expect(decoded.lastConnectedAt, original.lastConnectedAt);
     });
@@ -133,7 +152,25 @@ void main() {
 
       expect(decoded.startTmuxOnConnect, isFalse);
       expect(decoded.tmuxPrefixKey, TmuxPrefixKey.controlB);
+      expect(decoded.tmuxSessionName, defaultTmuxSessionName);
       expect(decoded.tmuxStartDirectory, isEmpty);
+      expect(decoded.externalAuthOfferKey, isTrue);
+    });
+
+    test('legacy tmux start flag is still supported', () {
+      final decoded = SavedHost.fromJson(const {
+        'id': 'id',
+        'name': 'Legacy Host',
+        'host': 'example.com',
+        'port': 22,
+        'username': 'root',
+        'authMethod': 'password',
+        'password': 'secret',
+        'startTmuxOnConnect': true,
+      });
+
+      expect(decoded.startTmuxOnConnect, isTrue);
+      expect(decoded.tmuxSessionName, defaultTmuxSessionName);
     });
 
     test('preserves hardware key auth method', () {
@@ -152,6 +189,45 @@ void main() {
       expect(decoded.authMethod, SshAuthMethod.hardwareKey);
       expect(decoded.privateKey, original.privateKey);
       expect(decoded.passphrase, isEmpty);
+    });
+
+    test('preserves external auth method without credentials', () {
+      const original = SavedHost(
+        id: 'id',
+        name: 'External Host',
+        host: 'example.com',
+        port: 22,
+        username: '',
+        authMethod: SshAuthMethod.external,
+      );
+
+      final decoded = SavedHost.fromJson(original.toJson());
+
+      expect(decoded.authMethod, SshAuthMethod.external);
+      expect(decoded.password, isEmpty);
+      expect(decoded.privateKey, isEmpty);
+      expect(decoded.passphrase, isEmpty);
+      expect(decoded.externalAuthOfferKey, isTrue);
+      expect(decoded.endpoint, 'example.com:22');
+      expect(decoded.isValid, isTrue);
+    });
+
+    test('preserves disabled temporary public key for external auth', () {
+      const original = SavedHost(
+        id: 'id',
+        name: 'External Host',
+        host: 'example.com',
+        port: 22,
+        username: '',
+        authMethod: SshAuthMethod.external,
+        externalAuthOfferKey: false,
+      );
+
+      final decoded = SavedHost.fromJson(original.toJson());
+
+      expect(decoded.authMethod, SshAuthMethod.external);
+      expect(decoded.externalAuthOfferKey, isFalse);
+      expect(decoded.isValid, isTrue);
     });
   });
 
@@ -363,6 +439,9 @@ void main() {
   });
 
   group('HostsController', () {
+    final older = DateTime.parse('2026-01-01T10:00:00Z');
+    final newer = DateTime.parse('2026-01-02T10:00:00Z');
+
     test('upsert + load surfaces persisted hosts', () async {
       final repository = FakeHostsRepository();
       final controller = HostsController(repository);
@@ -386,6 +465,77 @@ void main() {
       final saved = repository.persisted.single;
       expect(saved.username, 'new');
       expect(saved.lastConnectedAt, isNotNull);
+    });
+
+    test('sorts by last connected by default', () async {
+      final repository = FakeHostsRepository()
+        ..persisted = [
+          buildHost('a').copyWith(name: 'Alpha', lastConnectedAt: older),
+          buildHost('b').copyWith(name: 'Beta'),
+          buildHost('c').copyWith(name: 'Gamma', lastConnectedAt: newer),
+        ];
+      final controller = HostsController(repository);
+
+      await controller.load();
+
+      expect(controller.sortedHosts.map((host) => host.name), [
+        'Gamma',
+        'Alpha',
+        'Beta',
+      ]);
+    });
+
+    test('can keep a static name sort', () async {
+      final repository = FakeHostsRepository()
+        ..persistedSortMode = HostListSortMode.name
+        ..persisted = [
+          buildHost('c').copyWith(name: 'Gamma', lastConnectedAt: newer),
+          buildHost('a').copyWith(name: 'Alpha', lastConnectedAt: older),
+          buildHost('b').copyWith(name: 'Beta'),
+        ];
+      final controller = HostsController(repository);
+
+      await controller.load();
+      await controller.markConnected(repository.persisted.first);
+
+      expect(controller.sortMode, HostListSortMode.name);
+      expect(controller.sortedHosts.map((host) => host.name), [
+        'Alpha',
+        'Beta',
+        'Gamma',
+      ]);
+    });
+
+    test('can keep a static added sort', () async {
+      final repository = FakeHostsRepository()
+        ..persistedSortMode = HostListSortMode.added
+        ..persisted = [
+          buildHost('c').copyWith(name: 'Gamma', lastConnectedAt: newer),
+          buildHost('a').copyWith(name: 'Alpha', lastConnectedAt: older),
+          buildHost('b').copyWith(name: 'Beta'),
+        ];
+      final controller = HostsController(repository);
+
+      await controller.load();
+      await controller.markConnected(repository.persisted.first);
+
+      expect(controller.sortMode, HostListSortMode.added);
+      expect(controller.sortedHosts.map((host) => host.name), [
+        'Gamma',
+        'Alpha',
+        'Beta',
+      ]);
+    });
+
+    test('persists selected sort mode', () async {
+      final repository = FakeHostsRepository();
+      final controller = HostsController(repository);
+      await controller.load();
+
+      await controller.setSortMode(HostListSortMode.name);
+
+      expect(repository.persistedSortMode, HostListSortMode.name);
+      expect(controller.sortMode, HostListSortMode.name);
     });
   });
 }
