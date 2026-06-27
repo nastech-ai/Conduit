@@ -22,11 +22,21 @@ void main() {
       password: 'p',
     );
 
-    test('rejects empty id, name, host, username', () {
+    test('rejects empty id, name, host, but allows empty username', () {
       expect(base.copyWith(id: '').isValid, isFalse);
       expect(base.copyWith(name: ' ').isValid, isFalse);
       expect(base.copyWith(host: '').isValid, isFalse);
-      expect(base.copyWith(username: '').isValid, isFalse);
+      expect(base.copyWith(username: '').isValid, isTrue);
+      expect(
+        base
+            .copyWith(
+              username: '',
+              authMethod: SshAuthMethod.external,
+              password: '',
+            )
+            .isValid,
+        isTrue,
+      );
     });
 
     test('rejects out-of-range ports', () {
@@ -72,6 +82,10 @@ void main() {
             .isValid,
         isTrue,
       );
+      expect(
+        base.copyWith(authMethod: SshAuthMethod.external, password: '').isValid,
+        isTrue,
+      );
     });
   });
 
@@ -90,6 +104,7 @@ void main() {
         connectionTimeoutSeconds: 30,
         useMosh: true,
         moshLocale: 'en_US.UTF-8',
+        externalAuthOfferKey: false,
         startTmuxOnConnect: true,
         tmuxPrefixKey: TmuxPrefixKey.controlA,
         tmuxSessionName: 'work',
@@ -114,6 +129,7 @@ void main() {
       );
       expect(decoded.useMosh, original.useMosh);
       expect(decoded.moshLocale, original.moshLocale);
+      expect(decoded.externalAuthOfferKey, original.externalAuthOfferKey);
       expect(decoded.predictiveEchoEnabled, original.predictiveEchoEnabled);
       expect(decoded.startTmuxOnConnect, original.startTmuxOnConnect);
       expect(decoded.tmuxPrefixKey, original.tmuxPrefixKey);
@@ -137,6 +153,7 @@ void main() {
       expect(decoded.tmuxPrefixKey, TmuxPrefixKey.controlB);
       expect(decoded.tmuxSessionName, defaultTmuxSessionName);
       expect(decoded.tmuxStartDirectory, isEmpty);
+      expect(decoded.externalAuthOfferKey, isTrue);
     });
 
     test('legacy tmux start flag is still supported', () {
@@ -171,6 +188,45 @@ void main() {
       expect(decoded.authMethod, SshAuthMethod.hardwareKey);
       expect(decoded.privateKey, original.privateKey);
       expect(decoded.passphrase, isEmpty);
+    });
+
+    test('preserves external auth method without credentials', () {
+      const original = SavedHost(
+        id: 'id',
+        name: 'External Host',
+        host: 'example.com',
+        port: 22,
+        username: '',
+        authMethod: SshAuthMethod.external,
+      );
+
+      final decoded = SavedHost.fromJson(original.toJson());
+
+      expect(decoded.authMethod, SshAuthMethod.external);
+      expect(decoded.password, isEmpty);
+      expect(decoded.privateKey, isEmpty);
+      expect(decoded.passphrase, isEmpty);
+      expect(decoded.externalAuthOfferKey, isTrue);
+      expect(decoded.endpoint, 'example.com:22');
+      expect(decoded.isValid, isTrue);
+    });
+
+    test('preserves disabled temporary public key for external auth', () {
+      const original = SavedHost(
+        id: 'id',
+        name: 'External Host',
+        host: 'example.com',
+        port: 22,
+        username: '',
+        authMethod: SshAuthMethod.external,
+        externalAuthOfferKey: false,
+      );
+
+      final decoded = SavedHost.fromJson(original.toJson());
+
+      expect(decoded.authMethod, SshAuthMethod.external);
+      expect(decoded.externalAuthOfferKey, isFalse);
+      expect(decoded.isValid, isTrue);
     });
   });
 

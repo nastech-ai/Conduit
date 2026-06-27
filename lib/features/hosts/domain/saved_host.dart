@@ -1,4 +1,4 @@
-enum SshAuthMethod { password, privateKey, hardwareKey }
+enum SshAuthMethod { password, privateKey, hardwareKey, external }
 
 enum TmuxPrefixKey { controlB, controlA }
 
@@ -27,6 +27,7 @@ class SavedHost {
     this.password = '',
     this.privateKey = '',
     this.passphrase = '',
+    this.externalAuthOfferKey = true,
     this.forwardAgent = false,
     this.tags = const [],
     this.connectionTimeoutSeconds = 12,
@@ -49,6 +50,7 @@ class SavedHost {
   final String password;
   final String privateKey;
   final String passphrase;
+  final bool externalAuthOfferKey;
   final bool forwardAgent;
   final List<String> tags;
   final int connectionTimeoutSeconds;
@@ -67,16 +69,23 @@ class SavedHost {
       host.trim().isNotEmpty &&
       port > 0 &&
       port <= 65535 &&
-      username.trim().isNotEmpty &&
       connectionTimeoutSeconds >= 3 &&
       connectionTimeoutSeconds <= 120 &&
       switch (authMethod) {
         SshAuthMethod.password => password.isNotEmpty,
         SshAuthMethod.privateKey => privateKey.trim().isNotEmpty,
         SshAuthMethod.hardwareKey => privateKey.trim().isNotEmpty,
+        SshAuthMethod.external => true,
       };
 
-  String get endpoint => '$username@$host:$port';
+  String get endpoint {
+    final trimmedUsername = username.trim();
+    final trimmedHost = host.trim();
+    if (trimmedUsername.isEmpty) {
+      return '$trimmedHost:$port';
+    }
+    return '$trimmedUsername@$trimmedHost:$port';
+  }
 
   SavedHost copyWith({
     String? id,
@@ -88,6 +97,7 @@ class SavedHost {
     String? password,
     String? privateKey,
     String? passphrase,
+    bool? externalAuthOfferKey,
     bool? forwardAgent,
     List<String>? tags,
     int? connectionTimeoutSeconds,
@@ -111,6 +121,7 @@ class SavedHost {
       password: password ?? this.password,
       privateKey: privateKey ?? this.privateKey,
       passphrase: passphrase ?? this.passphrase,
+      externalAuthOfferKey: externalAuthOfferKey ?? this.externalAuthOfferKey,
       forwardAgent: forwardAgent ?? this.forwardAgent,
       tags: tags ?? this.tags,
       connectionTimeoutSeconds:
@@ -140,6 +151,7 @@ class SavedHost {
       'password': password,
       'privateKey': privateKey,
       'passphrase': passphrase,
+      'externalAuthOfferKey': externalAuthOfferKey,
       'forwardAgent': forwardAgent,
       'tags': tags,
       'connectionTimeoutSeconds': connectionTimeoutSeconds,
@@ -177,6 +189,7 @@ class SavedHost {
       password: json['password'] as String? ?? '',
       privateKey: json['privateKey'] as String? ?? '',
       passphrase: json['passphrase'] as String? ?? '',
+      externalAuthOfferKey: json['externalAuthOfferKey'] as bool? ?? true,
       forwardAgent: json['forwardAgent'] as bool? ?? false,
       tags: tags,
       connectionTimeoutSeconds: json['connectionTimeoutSeconds'] as int? ?? 12,

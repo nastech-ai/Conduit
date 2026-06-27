@@ -118,9 +118,7 @@ class TerminalSessionController extends ChangeNotifier {
     _outputFilter.reset();
     _predictiveEcho.reset();
     _status = TerminalConnectionStatus.connecting;
-    terminal.write(
-      'Connecting to ${host.username}@${host.host}:${host.port}...\r\n',
-    );
+    terminal.write('Connecting to ${host.endpoint}...\r\n');
     notifyListeners();
 
     StreamSubscription<String>? securityKeySubscription;

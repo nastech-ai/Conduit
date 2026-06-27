@@ -650,6 +650,48 @@ void main() {
     });
   });
 
+  group('SshClientFactory external auth', () {
+    test('uses only an ephemeral public key identity', () {
+      final factory = SshClientFactory(NoopVerifier());
+      const host = SavedHost(
+        id: 'id',
+        name: 'Host',
+        host: 'example.com',
+        port: 22,
+        username: 'root',
+        authMethod: SshAuthMethod.external,
+        forwardAgent: true,
+      );
+
+      final identities = factory.identitiesForTesting(host);
+
+      expect(identities, hasLength(1));
+      expect(identities!.single, isA<OpenSSHEd25519KeyPair>());
+      expect(factory.agentHandlerForTesting(host), isNull);
+      expect(factory.passwordRequestForTesting(host), isNull);
+      expect(factory.userInfoRequestForTesting(host), isNull);
+    });
+
+    test('can use pure none auth without an ephemeral identity', () {
+      final factory = SshClientFactory(NoopVerifier());
+      const host = SavedHost(
+        id: 'id',
+        name: 'Host',
+        host: 'example.com',
+        port: 22,
+        username: 'root',
+        authMethod: SshAuthMethod.external,
+        externalAuthOfferKey: false,
+        forwardAgent: true,
+      );
+
+      expect(factory.identitiesForTesting(host), isNull);
+      expect(factory.agentHandlerForTesting(host), isNull);
+      expect(factory.passwordRequestForTesting(host), isNull);
+      expect(factory.userInfoRequestForTesting(host), isNull);
+    });
+  });
+
   group('SshClientFactory agent forwarding', () {
     SshClientFactory privateKeyFactory() => SshClientFactory(
       NoopVerifier(),

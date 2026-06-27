@@ -9,6 +9,7 @@ import 'package:conduit/features/terminal/domain/host_key_verifier.dart';
 import 'package:conduit/features/terminal/domain/security_key_interaction.dart';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter/foundation.dart' show Uint8List, visibleForTesting;
+import 'package:pinenacl/ed25519.dart' as ed25519;
 
 typedef SshKeyPairParser =
     List<SSHKeyPair> Function(String pemText, String? passphrase);
@@ -31,6 +32,7 @@ class SshClientFactory {
   final HostKeyVerifier _hostKeyVerifier;
   final OpenSshSecurityKeySigner _securityKeySigner;
   final SshKeyPairParser _keyPairParser;
+  SSHKeyPair? _externalAuthIdentity;
 
   Future<SSHClient> connect(SavedHost host) async {
     SSHSocket? socket;
@@ -64,6 +66,10 @@ class SshClientFactory {
   }
 
   List<SSHKeyPair>? _identitiesFor(SavedHost host) {
+    if (host.authMethod == SshAuthMethod.external &&
+        host.externalAuthOfferKey) {
+      return [_externalAuthIdentity ??= _generateExternalAuthIdentity()];
+    }
     if (host.authMethod != SshAuthMethod.privateKey &&
         host.authMethod != SshAuthMethod.hardwareKey) {
       return null;
@@ -108,7 +114,10 @@ class SshClientFactory {
     SavedHost host,
     List<SSHKeyPair>? identities,
   ) {
-    if (!host.forwardAgent || identities == null || identities.isEmpty) {
+    if (host.authMethod == SshAuthMethod.external ||
+        !host.forwardAgent ||
+        identities == null ||
+        identities.isEmpty) {
       return null;
     }
     return SSHKeyPairAgent(identities);
@@ -121,6 +130,14 @@ class SshClientFactory {
   @visibleForTesting
   String formatFingerprintForTesting(Uint8List bytes) =>
       _formatFingerprint(bytes);
+
+  @visibleForTesting
+  String Function()? passwordRequestForTesting(SavedHost host) =>
+      _passwordRequestFor(host);
+
+  @visibleForTesting
+  SSHUserInfoRequestHandler? userInfoRequestForTesting(SavedHost host) =>
+      _userInfoRequestFor(host);
 
   String Function()? _passwordRequestFor(SavedHost host) {
     return host.authMethod == SshAuthMethod.password
@@ -145,6 +162,15 @@ class SshClientFactory {
             '',
       ];
     };
+  }
+
+  SSHKeyPair _generateExternalAuthIdentity() {
+    final signingKey = ed25519.SigningKey.generate();
+    return OpenSSHEd25519KeyPair(
+      Uint8List.fromList(signingKey.verifyKey.asTypedList),
+      Uint8List.fromList(signingKey.asTypedList),
+      'conduit-external-auth',
+    );
   }
 
   String _formatFingerprint(Uint8List bytes) {

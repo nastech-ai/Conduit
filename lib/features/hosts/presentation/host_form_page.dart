@@ -53,6 +53,7 @@ class _HostFormPageState extends State<HostFormPage> {
   bool _showPassphrase = false;
   bool _useMosh = false;
   bool _predictiveEchoEnabled = false;
+  bool _externalAuthOfferKey = true;
   bool _forwardAgent = false;
   bool _startTmuxOnConnect = false;
   TmuxPrefixKey _tmuxPrefixKey = defaultTmuxPrefixKey;
@@ -89,6 +90,7 @@ class _HostFormPageState extends State<HostFormPage> {
       _useMosh = host.useMosh;
       _moshLocaleController.text = host.moshLocale;
       _predictiveEchoEnabled = host.predictiveEchoEnabled;
+      _externalAuthOfferKey = host.externalAuthOfferKey;
       _forwardAgent = host.forwardAgent;
       _startTmuxOnConnect = host.startTmuxOnConnect;
       _tmuxPrefixKey = host.tmuxPrefixKey;
@@ -214,6 +216,7 @@ class _HostFormPageState extends State<HostFormPage> {
               showPassword: _showPassword,
               showPassphrase: _showPassphrase,
               forwardAgent: _forwardAgent,
+              externalAuthOfferKey: _externalAuthOfferKey,
               keyInspection: _keyInspection,
               requiredValidator: _required,
               keyMaterialValidator: _validateKeyMaterial,
@@ -231,6 +234,8 @@ class _HostFormPageState extends State<HostFormPage> {
               onViewPublicKey: _viewPublicKey,
               onForwardAgentChanged: (value) =>
                   setState(() => _forwardAgent = value),
+              onExternalAuthOfferKeyChanged: (value) =>
+                  setState(() => _externalAuthOfferKey = value),
             ),
             const SizedBox(height: 14),
             HostAdvancedSection(
@@ -477,17 +482,13 @@ class _HostFormPageState extends State<HostFormPage> {
       port: int.parse(_portController.text),
       username: _usernameController.text.trim(),
       authMethod: _authMethod,
-      password: _passwordController.text,
-      privateKey: _privateKeyController.text,
-      passphrase:
-          (_authMethod == SshAuthMethod.privateKey ||
-              _authMethod == SshAuthMethod.hardwareKey)
-          ? _passphraseController.text
+      password: _authMethod == SshAuthMethod.password
+          ? _passwordController.text
           : '',
-      forwardAgent:
-          (_authMethod == SshAuthMethod.privateKey ||
-              _authMethod == SshAuthMethod.hardwareKey) &&
-          _forwardAgent,
+      privateKey: _usesKeyAuth ? _privateKeyController.text : '',
+      passphrase: _usesKeyAuth ? _passphraseController.text : '',
+      externalAuthOfferKey: _externalAuthOfferKey,
+      forwardAgent: _usesKeyAuth && _forwardAgent,
       tags: _tags,
       connectionTimeoutSeconds: int.parse(_timeoutController.text),
       useMosh: _useMosh,

@@ -82,7 +82,6 @@ class HostConnectionSection extends StatelessWidget {
             prefixIcon: Icon(Icons.person_outline_rounded),
           ),
           textInputAction: TextInputAction.next,
-          validator: requiredValidator,
         ),
       ],
     );
@@ -98,6 +97,7 @@ class HostAuthenticationSection extends StatelessWidget {
     required this.showPassword,
     required this.showPassphrase,
     required this.forwardAgent,
+    required this.externalAuthOfferKey,
     required this.keyInspection,
     required this.requiredValidator,
     required this.keyMaterialValidator,
@@ -109,6 +109,7 @@ class HostAuthenticationSection extends StatelessWidget {
     required this.onGenerateKey,
     required this.onViewPublicKey,
     required this.onForwardAgentChanged,
+    required this.onExternalAuthOfferKeyChanged,
     super.key,
   });
 
@@ -119,6 +120,7 @@ class HostAuthenticationSection extends StatelessWidget {
   final bool showPassword;
   final bool showPassphrase;
   final bool forwardAgent;
+  final bool externalAuthOfferKey;
   final SshKeyInspection? keyInspection;
   final FormFieldValidator<String> requiredValidator;
   final FormFieldValidator<String> keyMaterialValidator;
@@ -130,6 +132,7 @@ class HostAuthenticationSection extends StatelessWidget {
   final VoidCallback onGenerateKey;
   final VoidCallback onViewPublicKey;
   final ValueChanged<bool> onForwardAgentChanged;
+  final ValueChanged<bool> onExternalAuthOfferKeyChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -140,6 +143,23 @@ class HostAuthenticationSection extends StatelessWidget {
       children: [
         AuthMethodPicker(value: authMethod, onChanged: onAuthMethodChanged),
         const SizedBox(height: 14),
+        if (authMethod == SshAuthMethod.external) ...[
+          AuthExplainer(method: authMethod),
+          const SizedBox(height: 10),
+          Material(
+            color: Colors.transparent,
+            child: SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Offer temporary public key'),
+              subtitle: const Text(
+                'Helps servers that authenticate externally but still expect '
+                'a public-key login attempt.',
+              ),
+              value: externalAuthOfferKey,
+              onChanged: onExternalAuthOfferKeyChanged,
+            ),
+          ),
+        ],
         if (authMethod == SshAuthMethod.password)
           TextFormField(
             controller: passwordController,

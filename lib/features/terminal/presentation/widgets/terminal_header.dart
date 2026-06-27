@@ -55,7 +55,7 @@ class TerminalHeader extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  '${session.host.username}@${session.host.host}:${session.host.port}',
+                  session.host.endpoint,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
