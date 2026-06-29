@@ -55,11 +55,12 @@ For public release builds, do not change any generated `.so` without updating
 ## Conduit-side binary changes
 
 Android only extracts native libraries named like `lib*.so` from `jniLibs`, so
-Conduit renames executable files into that shape. Two dynamic-linker names were
+Conduit renames executable files into that shape. Three dynamic-linker names were
 also rewritten in place so the renamed files resolve from `nativeLibraryDir`:
 
 - `libtalloc.so.2` -> `libtalloc.so`
 - `libbusybox.so.1.38.0` -> `libbusybox.so`
+- `liblzma.so.5` -> `liblzma.so`
 
 The rewrite is a byte-preserving string replacement with trailing NUL padding;
 the replacement strings are shorter than the originals. No source code changes

@@ -65,7 +65,8 @@ Conduit includes a snapshot of the relevant Termux build recipes and patches at
 pinned to Termux `termux-packages` commit
 `ac296452b8ebec390cad3bce9060577c96099b10`. Conduit makes no source-code
 changes to those projects. The only Conduit-side binary change is an in-place
-rewrite of two `DT_NEEDED`/`SONAME` strings
-(`libtalloc.so.2` -> `libtalloc.so`, `libbusybox.so.1.38.0` -> `libbusybox.so`)
+rewrite of three `DT_NEEDED`/`SONAME` strings
+(`libtalloc.so.2` -> `libtalloc.so`, `libbusybox.so.1.38.0` -> `libbusybox.so`,
+`liblzma.so.5` -> `liblzma.so`)
 so the libraries resolve under Android's `lib*.so`-only extraction. See the
 source-offer index for the exact transformation and verification command.

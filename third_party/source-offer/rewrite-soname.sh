@@ -8,8 +8,9 @@
 # linker name strings additionally have to be rewritten in place so the renamed
 # files resolve from `nativeLibraryDir`:
 #
-#     libtalloc.so.2        -> libtalloc.so      (DT_SONEME / DT_NEEDED)
+#     libtalloc.so.2        -> libtalloc.so      (DT_SONAME / DT_NEEDED)
 #     libbusybox.so.1.38.0  -> libbusybox.so     (DT_SONAME / DT_NEEDED)
+#     liblzma.so.5          -> liblzma.so        (DT_SONAME / DT_NEEDED)
 #
 # Each rewrite is byte-length-preserving: the new (shorter) name plus its NUL
 # terminator, right-padded with NULs to the original length. File sizes and all
@@ -30,6 +31,7 @@ JNI="android/app/src/main/jniLibs/arm64-v8a"
 PAIRS=(
   "libtalloc.so.2|libtalloc.so"
   "libbusybox.so.1.38.0|libbusybox.so"
+  "liblzma.so.5|liblzma.so"
 )
 
 rewrite_file() {
@@ -51,7 +53,7 @@ if [ "$verify" -eq 1 ]; then
     if command -v readelf >/dev/null 2>&1; then
       leftover=$(readelf -d "$f" 2>/dev/null \
         | grep -E 'NEEDED|SONAME' \
-        | grep -E 'libtalloc\.so\.2|libbusybox\.so\.1\.38\.0' || true)
+        | grep -E 'libtalloc\.so\.2|libbusybox\.so\.1\.38\.0|liblzma\.so\.5' || true)
       if [ -n "$leftover" ]; then
         echo "NOT REWRITTEN: $f"
         echo "$leftover"
@@ -59,7 +61,7 @@ if [ "$verify" -eq 1 ]; then
       fi
     fi
   done
-  [ "$status" -eq 0 ] && echo "OK: no over-long talloc/busybox names remain."
+  [ "$status" -eq 0 ] && echo "OK: no over-long loader names remain."
   exit "$status"
 fi
 
