@@ -12,5 +12,5 @@ a9511ce2b4012c17225d1e883bb264fb1a3233af43562d400bd2db53e8ac13bd  android/app/sr
 3603dbff0c800486f9a78b943a752f16fbf38ce6efb9548e2a68875708e38cf2  android/app/src/main/jniLibs/arm64-v8a/libproot.so
 44ef39c1e1a18c09f6e4c4b5d6f8bba82d30596598bd155ec162d05c5122ff04  android/app/src/main/jniLibs/arm64-v8a/libproot_loader.so
 4e24c815ff14c14936a06c5207cf35a95dbbc0c5dbbe5bf8e83bee0af299655e  android/app/src/main/jniLibs/arm64-v8a/libtalloc.so
-e799899e62dc5414c5cd045005d67f89a9a49f0750d7cfe73be1f55f99055680  android/app/src/main/jniLibs/arm64-v8a/libtarbin.so
+420b77ee6e64331c6e6f781109e8b126ea650b67582d56a03bb69ecba2067cba  android/app/src/main/jniLibs/arm64-v8a/libtarbin.so
 caa29fc6950abb0a01dbb17c5701dda30a12feee10ce3580c491964e686f596f  android/app/src/main/jniLibs/arm64-v8a/libxzbin.so

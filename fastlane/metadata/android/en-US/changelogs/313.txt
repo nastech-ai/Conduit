@@ -1,0 +1,1 @@
+Build local shell binaries in a Debian environment for F-Droid reproducibility.
