@@ -1,0 +1,1 @@
+Stabilize native payload rebuilds for F-Droid verification.
