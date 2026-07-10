@@ -1,4 +1,4 @@
-modules = ["bash", "swift-5.8"]
+modules = ["bash", "swift-5.8", "dart-3.10"]
 [agent]
 expertMode = true
 
