@@ -78,7 +78,7 @@ class _HostsPageState extends State<HostsPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(widget.hostsController.load());
-      for (final c in widget.localShellControllers) unawaited(c.refresh());
+      for (final c in widget.localShellControllers) { unawaited(c.refresh()); }
       _handlePromptChanged();
     });
     widget.promptCoordinator.addListener(_handlePromptChanged);

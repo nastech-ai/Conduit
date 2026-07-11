@@ -28,6 +28,7 @@ void main() {
     test('binds shared Android storage into the local shell', () async {
       late List<String> capturedArguments;
       final paths = LocalShellPaths(
+        distroId: 'archlinux',
         nativeLibraryDir: p.join(tempDir.path, 'lib'),
         dataDir: p.join(tempDir.path, 'files'),
         sharedStorageFeatureEnabled: true,
@@ -35,7 +36,7 @@ void main() {
         sharedStorageAccessGranted: true,
       );
       final repository = LocalTerminalRepository(
-        resolvePaths: () async => paths,
+        resolvePaths: (_) async => paths,
         processFactory:
             ({
               required executable,

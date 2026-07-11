@@ -1,9 +1,11 @@
 import 'package:conduit/features/local_shell/domain/first_boot_script.dart';
+import 'package:conduit/features/local_shell/domain/rootfs_manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   const generator = FirstBootScript();
   const config = FirstBootConfig(
+    packageManager: PackageManager.pacman,
     pacmanMirror: r'http://mirror.archlinuxarm.org/$arch/$repo',
     keyringName: 'archlinuxarm',
     doneMarkerPath: '/var/lib/.conduit-firstboot-done',

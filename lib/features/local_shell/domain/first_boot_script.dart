@@ -130,36 +130,36 @@ class FirstBootScript {
       )
       ..writeln()
       ..writeln('_run_service() {')
-      ..writeln('  local action="$1"')
-      ..writeln('  local unit="${2%.service}"')
+      ..writeln('  local action="\$1"')
+      ..writeln('  local unit="\${2%.service}"')
       ..writeln('  if command -v service >/dev/null 2>&1; then')
-      ..writeln('    service "$unit" "$action"')
-      ..writeln('  elif [ -x "/etc/init.d/$unit" ]; then')
-      ..writeln('    /etc/init.d/"$unit" "$action"')
+      ..writeln('    service "\$unit" "\$action"')
+      ..writeln('  elif [ -x "/etc/init.d/\$unit" ]; then')
+      ..writeln('    /etc/init.d/"\$unit" "\$action"')
       ..writeln('  else')
       ..writeln(
-        '    echo "systemctl: no init script found for \'$unit\'" >&2',
+        "    echo \"systemctl: no init script found for '\$unit'\" >&2",
       )
       ..writeln('    return 1')
       ..writeln('  fi')
       ..writeln('}')
       ..writeln()
-      ..writeln('cmd="${1:-}"')
-      ..writeln('unit="${2:-}"')
+      ..writeln('cmd="\${1:-}"')
+      ..writeln('unit="\${2:-}"')
       ..writeln()
-      ..writeln('case "$cmd" in')
+      ..writeln('case "\$cmd" in')
       ..writeln('  start|stop|restart|reload|status|try-restart)')
-      ..writeln('    _run_service "$cmd" "$unit"')
+      ..writeln('    _run_service "\$cmd" "\$unit"')
       ..writeln('    ;;')
       ..writeln('  enable)')
       ..writeln(
         '    if command -v update-rc.d >/dev/null 2>&1; then',
       )
-      ..writeln('      update-rc.d "${unit%.service}" defaults')
+      ..writeln('      update-rc.d "\${unit%.service}" defaults')
       ..writeln(
         '    elif command -v chkconfig >/dev/null 2>&1; then',
       )
-      ..writeln('      chkconfig "${unit%.service}" on')
+      ..writeln('      chkconfig "\${unit%.service}" on')
       ..writeln('    else')
       ..writeln(
         '      echo "systemctl enable: not available in this proot environment" >&2',
@@ -170,11 +170,11 @@ class FirstBootScript {
       ..writeln(
         '    if command -v update-rc.d >/dev/null 2>&1; then',
       )
-      ..writeln('      update-rc.d "${unit%.service}" remove')
+      ..writeln('      update-rc.d "\${unit%.service}" remove')
       ..writeln(
         '    elif command -v chkconfig >/dev/null 2>&1; then',
       )
-      ..writeln('      chkconfig "${unit%.service}" off')
+      ..writeln('      chkconfig "\${unit%.service}" off')
       ..writeln('    else')
       ..writeln(
         '      echo "systemctl disable: not available in this proot environment" >&2',
@@ -188,12 +188,12 @@ class FirstBootScript {
       ..writeln('    ;;')
       ..writeln('  is-active)')
       ..writeln(
-        '    _run_service status "$unit" >/dev/null 2>&1 && echo "active" || echo "inactive"',
+        '    _run_service status "\$unit" >/dev/null 2>&1 && echo "active" || echo "inactive"',
       )
       ..writeln('    ;;')
       ..writeln('  is-enabled)')
       ..writeln(
-        '    ls /etc/rc3.d/S*"${unit%.service}" >/dev/null 2>&1 && echo "enabled" || echo "disabled"',
+        '    ls /etc/rc3.d/S*"\${unit%.service}" >/dev/null 2>&1 && echo "enabled" || echo "disabled"',
       )
       ..writeln('    ;;')
       ..writeln('  list-units|list-unit-files)')
@@ -219,7 +219,7 @@ class FirstBootScript {
       ..writeln('    ;;')
       ..writeln('  *)')
       ..writeln(
-        '    echo "systemctl: unknown command \'\$cmd\'" >&2',
+        "    echo \"systemctl: unknown command '\$cmd'\" >&2",
       )
       ..writeln(
         '    echo "Available: start stop restart reload status enable disable daemon-reload is-active is-enabled list-units" >&2',
