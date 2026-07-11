@@ -17,7 +17,6 @@ final archLinuxDistro = RootfsManifest(
   sha256: 'b7e4cfb1414a281f90bfd39a503f72f38e03c31b356927972f797988fb48b5b1',
   downloadSizeBytes: 149200240,
   pacmanMirror: r'http://mirror.archlinuxarm.org/$arch/$repo',
-  keyringName: 'archlinuxarm',
 );
 
 /// Ubuntu 24.04 LTS (Noble Numbat) — apt, from Termux proot-distro v4.18.0.

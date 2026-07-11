@@ -157,7 +157,7 @@ class _DistroSectionState extends State<_DistroSection> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Reinstall ${widget.controller.displayName}?'),
-        content: Text(
+        content: const Text(
           'This wipes the current environment — including anything you '
           'installed — and downloads a fresh image. Any open terminal tab '
           'for this distro will be closed first.',

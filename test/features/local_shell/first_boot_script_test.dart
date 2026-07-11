@@ -7,7 +7,6 @@ void main() {
   const config = FirstBootConfig(
     packageManager: PackageManager.pacman,
     pacmanMirror: r'http://mirror.archlinuxarm.org/$arch/$repo',
-    keyringName: 'archlinuxarm',
     doneMarkerPath: '/var/lib/.conduit-firstboot-done',
   );
 
