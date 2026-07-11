@@ -27,8 +27,8 @@ void main() {
     await tester.pumpWidget(wrap(controller, onManage: () => managed = true));
 
     expect(find.text(archLinuxDistro.displayName), findsOneWidget);
-    expect(find.textContaining('checking'), findsOneWidget);
-    expect(find.textContaining('tap to install'), findsNothing);
+    expect(find.textContaining('Checking'), findsOneWidget);
+    expect(find.textContaining('Tap to install'), findsNothing);
 
     await tester.tap(find.text(archLinuxDistro.displayName));
     await tester.pump();
@@ -41,7 +41,7 @@ void main() {
     await tester.pumpWidget(wrap(controller, onManage: () => managed = true));
 
     expect(find.text(archLinuxDistro.displayName), findsOneWidget);
-    expect(find.textContaining('tap to install'), findsOneWidget);
+    expect(find.textContaining('Tap to install'), findsOneWidget);
 
     await tester.tap(find.text(archLinuxDistro.displayName));
     await tester.pump();
