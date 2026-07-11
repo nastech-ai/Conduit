@@ -63,6 +63,10 @@ class RootfsManifest {
     final pmRaw = (json['packageManager'] as String?)?.trim() ?? 'pacman';
     final pm = pmRaw == 'apt' ? PackageManager.apt : PackageManager.pacman;
 
+    if (pm == PackageManager.pacman && mirror.isEmpty) {
+      throw const FormatException('Manifest is missing "pacmanMirror".');
+    }
+
     return RootfsManifest(
       version: version,
       archiveUrl: parsedUrl,

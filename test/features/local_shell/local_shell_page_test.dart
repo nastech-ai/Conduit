@@ -47,7 +47,7 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Remove local shell'));
+      await tester.tap(find.text('Remove'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Remove').last);
       await tester.pumpAndSettle();

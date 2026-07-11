@@ -26,11 +26,11 @@ void main() {
     var managed = false;
     await tester.pumpWidget(wrap(controller, onManage: () => managed = true));
 
-    expect(find.text('Local shell'), findsOneWidget);
+    expect(find.text(archLinuxDistro.displayName), findsOneWidget);
     expect(find.textContaining('checking'), findsOneWidget);
     expect(find.textContaining('tap to install'), findsNothing);
 
-    await tester.tap(find.text('Local shell'));
+    await tester.tap(find.text(archLinuxDistro.displayName));
     await tester.pump();
     expect(managed, isFalse);
   });
@@ -40,10 +40,10 @@ void main() {
     var managed = false;
     await tester.pumpWidget(wrap(controller, onManage: () => managed = true));
 
-    expect(find.text('Local shell'), findsOneWidget);
+    expect(find.text(archLinuxDistro.displayName), findsOneWidget);
     expect(find.textContaining('tap to install'), findsOneWidget);
 
-    await tester.tap(find.text('Local shell'));
+    await tester.tap(find.text(archLinuxDistro.displayName));
     await tester.pump();
     expect(managed, isTrue);
   });
@@ -53,7 +53,7 @@ void main() {
     await controller.refresh();
     await tester.pumpWidget(wrap(controller, onManage: () {}));
 
-    expect(find.text('Local shell'), findsNothing);
+    expect(find.text(archLinuxDistro.displayName), findsNothing);
   });
 }
 
