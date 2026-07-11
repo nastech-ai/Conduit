@@ -40,7 +40,7 @@ class HostsPage extends StatefulWidget {
     required this.lockController,
     required this.terminalRepository,
     required this.workspaceController,
-    required this.localShellController,
+    required this.localShellControllers,
     required this.themeController,
     required this.hostKeyVerifier,
     required this.promptCoordinator,
@@ -54,7 +54,7 @@ class HostsPage extends StatefulWidget {
   final AppLockController lockController;
   final SshTerminalRepository terminalRepository;
   final TerminalWorkspaceController workspaceController;
-  final LocalShellController localShellController;
+  final List<LocalShellController> localShellControllers;
   final ThemeController themeController;
   final HostKeyVerifier hostKeyVerifier;
   final HostKeyPromptCoordinator promptCoordinator;
@@ -78,7 +78,7 @@ class _HostsPageState extends State<HostsPage> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       unawaited(widget.hostsController.load());
-      unawaited(widget.localShellController.refresh());
+      for (final c in widget.localShellControllers) unawaited(c.refresh());
       _handlePromptChanged();
     });
     widget.promptCoordinator.addListener(_handlePromptChanged);
@@ -173,19 +173,48 @@ class _HostsPageState extends State<HostsPage> {
                     listenable: Listenable.merge([
                       widget.workspaceController,
                       widget.themeController,
+                      ...widget.localShellControllers,
                     ]),
                     builder: (context, _) {
                       if (!widget.themeController.showLocalShell) {
                         return const SizedBox.shrink();
                       }
-                      final active = widget.workspaceController.sessions.any(
-                        (session) => session.host.id == localShellHostId,
-                      );
-                      return LocalShellCard(
-                        controller: widget.localShellController,
-                        active: active,
-                        onOpenSession: _openLocalSession,
-                        onManage: _openLocalShell,
+                      final supported = widget.localShellControllers
+                          .where((c) => !c.state.isUnsupported)
+                          .toList();
+                      if (supported.isEmpty) return const SizedBox.shrink();
+                      final theme = Theme.of(context);
+                      final colorScheme = theme.colorScheme;
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Text(
+                              'Device',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              'Run commands locally, no server required.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colorScheme.onSurfaceVariant,
+                                height: 1.25,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            for (final c in widget.localShellControllers)
+                              LocalShellCard(
+                                controller: c,
+                                active: widget.workspaceController.sessions
+                                    .any((s) => s.host.id == c.hostId),
+                                onOpenSession: () => _openLocalSession(c),
+                                onManage: _openLocalShell,
+                              ),
+                          ],
+                        ),
                       );
                     },
                   ),
@@ -441,7 +470,7 @@ class _HostsPageState extends State<HostsPage> {
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => LocalShellPage(
-          controller: widget.localShellController,
+          controllers: widget.localShellControllers,
           onOpenSession: _openLocalSession,
           onCloseSession: _closeLocalSession,
         ),
@@ -449,11 +478,11 @@ class _HostsPageState extends State<HostsPage> {
     );
   }
 
-  Future<void> _openLocalSession() async {
-    if (widget.localShellController.sharedStorageFeatureEnabled &&
-        !widget.localShellController.sharedStorageAccessGranted) {
-      await widget.localShellController.requestSharedStorageAccess();
-      if (!widget.localShellController.sharedStorageAccessGranted) {
+  Future<void> _openLocalSession(LocalShellController controller) async {
+    if (controller.sharedStorageFeatureEnabled &&
+        !controller.sharedStorageAccessGranted) {
+      await controller.requestSharedStorageAccess();
+      if (!controller.sharedStorageAccessGranted) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -463,14 +492,14 @@ class _HostsPageState extends State<HostsPage> {
         return;
       }
     }
-    widget.workspaceController.open(widget.localShellController.localHost());
+    widget.workspaceController.open(controller.localHost());
     if (!mounted) return;
     await _openTerminalWorkspace();
   }
 
-  Future<void> _closeLocalSession() async {
+  Future<void> _closeLocalSession(LocalShellController controller) async {
     final sessions = widget.workspaceController.sessions.where(
-      (session) => session.host.id == localShellHostId,
+      (session) => session.host.id == controller.hostId,
     );
     for (final session in List.of(sessions)) {
       await widget.workspaceController.close(session);

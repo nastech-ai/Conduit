@@ -12,22 +12,22 @@ import 'package:conduit/features/local_shell/domain/local_shell_event.dart';
 import 'package:conduit/features/local_shell/domain/local_shell_paths.dart';
 import 'package:conduit/features/local_shell/domain/local_shell_state.dart';
 import 'package:conduit/features/local_shell/domain/local_shell_state_machine.dart';
-import 'package:conduit/features/local_shell/local_shell_config.dart';
+import 'package:conduit/features/local_shell/domain/rootfs_manifest.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
-const String localShellHostId = '__conduit_local_shell__';
-
 class LocalShellController extends ChangeNotifier {
   LocalShellController({
+    required RootfsManifest manifest,
     RootfsManifestSource? manifestSource,
     this.platform = const LocalShellPlatform(),
     this.httpClient,
     this.machine = const LocalShellStateMachine(),
-  }) : manifestSource =
-           manifestSource ??
-           EmbeddedRootfsManifestSource(defaultRootfsManifest());
+  }) : _manifest = manifest,
+       manifestSource =
+           manifestSource ?? EmbeddedRootfsManifestSource(manifest);
 
+  final RootfsManifest _manifest;
   final RootfsManifestSource manifestSource;
   final LocalShellPlatform platform;
   final http.Client? httpClient;
@@ -40,12 +40,25 @@ class LocalShellController extends ChangeNotifier {
   LocalShellPaths? _paths;
   Future<void>? _probeFuture;
 
+  /// Unique session/host identifier for this distro,
+  /// e.g. '__conduit_local_shell_archlinux__'.
+  String get hostId => '__conduit_local_shell_${_manifest.distroId}__';
+
+  /// Human-readable distro name, e.g. 'Ubuntu 24.04'.
+  String get displayName => _manifest.displayName;
+
+  /// Compressed archive size in bytes (used for UI progress hints).
+  int get downloadSizeBytes => _manifest.downloadSizeBytes;
+
+  /// Package manager this distro uses.
+  PackageManager get packageManager => _manifest.packageManager;
+
   bool get sharedStorageAccessGranted =>
       _paths?.sharedStorageAccessGranted ?? false;
   bool get sharedStorageFeatureEnabled =>
       _paths?.sharedStorageFeatureEnabled ?? false;
 
-  SavedHost localHost() => SavedHost.localShell(id: localShellHostId);
+  SavedHost localHost() => SavedHost.localShell(id: hostId);
 
   Future<LocalShellPaths> requirePaths() async {
     final paths = _paths;
@@ -102,6 +115,7 @@ class LocalShellController extends ChangeNotifier {
       }
 
       final paths = LocalShellPaths(
+        distroId: _manifest.distroId,
         nativeLibraryDir: env.nativeLibraryDir,
         dataDir: env.filesDir,
         sharedStorageFeatureEnabled: env.sharedStorageFeatureEnabled,

@@ -30,6 +30,7 @@ class ProotFirstBootRunner implements FirstBootRunner {
   Future<void> run(RootfsManifest manifest) async {
     final script = scriptGenerator.generate(
       FirstBootConfig(
+        packageManager: manifest.packageManager,
         pacmanMirror: manifest.pacmanMirror,
         keyringName: manifest.keyringName,
         doneMarkerPath: paths.firstBootMarker,

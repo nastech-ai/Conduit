@@ -1,22 +1,27 @@
 import 'dart:async';
 
 import 'package:conduit/features/local_shell/domain/local_shell_state.dart';
+import 'package:conduit/features/local_shell/domain/rootfs_manifest.dart';
 import 'package:conduit/features/local_shell/presentation/local_shell_controller.dart';
 import 'package:flutter/material.dart';
 
 class LocalShellPage extends StatefulWidget {
   const LocalShellPage({
-    required this.controller,
+    required this.controllers,
     required this.onOpenSession,
     required this.onCloseSession,
     super.key,
   });
 
-  final LocalShellController controller;
+  /// One controller per available distro (Arch, Ubuntu, Debian).
+  final List<LocalShellController> controllers;
 
-  final Future<void> Function() onOpenSession;
+  /// Called when the user wants to open a terminal for [controller]'s distro.
+  final Future<void> Function(LocalShellController controller) onOpenSession;
 
-  final Future<void> Function() onCloseSession;
+  /// Called before reinstalling/removing to close any open terminal tab for
+  /// [controller]'s distro.
+  final Future<void> Function(LocalShellController controller) onCloseSession;
 
   @override
   State<LocalShellPage> createState() => _LocalShellPageState();
@@ -27,7 +32,9 @@ class _LocalShellPageState extends State<LocalShellPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      unawaited(widget.controller.refresh());
+      for (final c in widget.controllers) {
+        unawaited(c.refresh());
+      }
     });
   }
 
@@ -36,110 +43,177 @@ class _LocalShellPageState extends State<LocalShellPage> {
     return Scaffold(
       appBar: AppBar(title: const Text('Local shell')),
       body: SafeArea(
-        child: ListenableBuilder(
-          listenable: widget.controller,
-          builder: (context, _) {
-            return SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildContent(context, widget.controller.state),
-                  const SizedBox(height: 32),
-                  const _CreditFooter(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (int i = 0; i < widget.controllers.length; i++) ...[
+                _DistroSection(
+                  controller: widget.controllers[i],
+                  onOpenSession: () => unawaited(
+                    widget.onOpenSession(widget.controllers[i]),
+                  ),
+                  onCloseSession: () =>
+                      widget.onCloseSession(widget.controllers[i]),
+                ),
+                if (i < widget.controllers.length - 1) ...[
+                  const SizedBox(height: 8),
+                  const Divider(),
+                  const SizedBox(height: 24),
                 ],
-              ),
-            );
-          },
+              ],
+              const SizedBox(height: 32),
+              const _CreditFooter(),
+            ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Per-distro section
+// ---------------------------------------------------------------------------
+
+class _DistroSection extends StatefulWidget {
+  const _DistroSection({
+    required this.controller,
+    required this.onOpenSession,
+    required this.onCloseSession,
+  });
+
+  final LocalShellController controller;
+  final VoidCallback onOpenSession;
+  final Future<void> Function() onCloseSession;
+
+  @override
+  State<_DistroSection> createState() => _DistroSectionState();
+}
+
+class _DistroSectionState extends State<_DistroSection> {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final state = widget.controller.state;
+        if (state.isUnsupported) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              widget.controller.displayName,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _buildContent(context, state),
+          ],
+        );
+      },
     );
   }
 
   Widget _buildContent(BuildContext context, LocalShellState state) {
-    switch (state.stage) {
-      case LocalShellStage.checking:
-        return const _Checking();
-      case LocalShellStage.unsupported:
-        return _Unsupported(message: state.error?.message);
-      case LocalShellStage.notInstalled:
-        return _NotInstalled(onInstall: widget.controller.install);
-      case LocalShellStage.downloading:
-      case LocalShellStage.extracting:
-      case LocalShellStage.configuring:
-        return _Installing(state: state);
-      case LocalShellStage.failed:
-        return _Failed(error: state.error, onRetry: widget.controller.install);
-      case LocalShellStage.ready:
-        return _Ready(
+    final controller = widget.controller;
+    return switch (state.stage) {
+      LocalShellStage.checking => const _Checking(),
+      LocalShellStage.unsupported => _Unsupported(message: state.error?.message),
+      LocalShellStage.notInstalled => _NotInstalled(
+          displayName: controller.displayName,
+          downloadSizeBytes: controller.downloadSizeBytes,
+          packageManager: controller.packageManager,
+          onInstall: controller.install,
+        ),
+      LocalShellStage.downloading ||
+      LocalShellStage.extracting ||
+      LocalShellStage.configuring => _Installing(
           state: state,
-          sharedStorageFeatureEnabled:
-              widget.controller.sharedStorageFeatureEnabled,
-          sharedStorageAccessGranted:
-              widget.controller.sharedStorageAccessGranted,
-          onOpen: () => unawaited(widget.onOpenSession()),
-          onReinstall: () => _confirmReinstall(context),
-          onReset: () => _confirmReset(context),
-        );
-    }
+          displayName: controller.displayName,
+        ),
+      LocalShellStage.failed => _Failed(
+          error: state.error,
+          onRetry: controller.install,
+        ),
+      LocalShellStage.ready => _Ready(
+          state: state,
+          displayName: controller.displayName,
+          packageManager: controller.packageManager,
+          sharedStorageFeatureEnabled: controller.sharedStorageFeatureEnabled,
+          sharedStorageAccessGranted: controller.sharedStorageAccessGranted,
+          onOpen: widget.onOpenSession,
+          onReinstall: _confirmReinstall,
+          onReset: _confirmReset,
+        ),
+    };
   }
 
-  Future<void> _confirmReinstall(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
+  void _confirmReinstall() {
+    showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reinstall Arch Linux?'),
-        content: const Text(
-          'This wipes the current environment - including anything you '
-          'installed with pacman - and downloads a fresh image. Any open '
-          'local shell tab will be closed first.',
+      builder: (ctx) => AlertDialog(
+        title: Text('Reinstall ${widget.controller.displayName}?'),
+        content: Text(
+          'This wipes the current environment — including anything you '
+          'installed — and downloads a fresh image. Any open terminal tab '
+          'for this distro will be closed first.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Reinstall'),
           ),
         ],
       ),
-    );
-    if (confirmed == true) {
-      await widget.onCloseSession();
-      await widget.controller.reinstall();
-    }
+    ).then((confirmed) async {
+      if (confirmed == true) {
+        await widget.onCloseSession();
+        await widget.controller.reinstall();
+      }
+    });
   }
 
-  Future<void> _confirmReset(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
+  void _confirmReset() {
+    showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Remove local shell?'),
-        content: const Text(
-          'This deletes the installed Arch Linux environment and everything '
-          'in it. Any open local shell tab will be closed first. You can '
-          'reinstall it later.',
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove this distro?'),
+        content: Text(
+          'This deletes the ${widget.controller.displayName} environment '
+          'and everything in it. Any open terminal tab will be closed '
+          'first. You can reinstall it later.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () => Navigator.of(ctx).pop(false),
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Remove'),
           ),
         ],
       ),
-    );
-    if (confirmed == true) {
-      await widget.onCloseSession();
-      await widget.controller.reset();
-    }
+    ).then((confirmed) async {
+      if (confirmed == true) {
+        await widget.onCloseSession();
+        await widget.controller.reset();
+      }
+    });
   }
 }
+
+// ---------------------------------------------------------------------------
+// State widgets
+// ---------------------------------------------------------------------------
 
 class _Checking extends StatelessWidget {
   const _Checking();
@@ -148,15 +222,7 @@ class _Checking extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _Hero(
-          icon: Icons.search_rounded,
-          title: 'Checking local shell',
-          body: 'Looking for an installed Arch Linux environment.',
-        ),
-        SizedBox(height: 24),
-        LinearProgressIndicator(),
-      ],
+      children: [SizedBox(height: 8), LinearProgressIndicator()],
     );
   }
 }
@@ -173,38 +239,48 @@ class _Unsupported extends StatelessWidget {
       title: 'Not available on this device',
       body:
           message ??
-          'The local Arch Linux shell needs a 64-bit ARM Android device.',
+          'The local shell needs a 64-bit ARM (arm64-v8a) Android device.',
     );
   }
 }
 
 class _NotInstalled extends StatelessWidget {
-  const _NotInstalled({required this.onInstall});
+  const _NotInstalled({
+    required this.displayName,
+    required this.downloadSizeBytes,
+    required this.packageManager,
+    required this.onInstall,
+  });
 
+  final String displayName;
+  final int downloadSizeBytes;
+  final PackageManager packageManager;
   final Future<void> Function() onInstall;
 
   @override
   Widget build(BuildContext context) {
+    final pkgHint =
+        packageManager == PackageManager.pacman ? 'pacman' : 'apt-get';
+    final sizeMb = (downloadSizeBytes / 1024 / 1024).round();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _Hero(
+        _Hero(
           icon: Icons.terminal_rounded,
-          title: 'Run Arch Linux on your device',
+          title: 'Run $displayName on your device',
           body:
-              'Install a full Arch Linux ARM userland with pacman, running '
+              'Install a full $displayName userland with $pkgHint, running '
               'locally through proot. The image downloads on first use.',
         ),
         const SizedBox(height: 24),
         FilledButton.icon(
           onPressed: onInstall,
           icon: const Icon(Icons.download_rounded),
-          label: const Text('Install Arch Linux'),
+          label: Text('Install $displayName'),
         ),
         const SizedBox(height: 12),
         Text(
-          'Downloads several hundred MB and uses ~1.5 GB once updated. '
-          'Wi-Fi recommended.',
+          'Downloads ~$sizeMb MB. Wi-Fi recommended.',
           style: Theme.of(context).textTheme.bodySmall,
         ),
       ],
@@ -213,9 +289,10 @@ class _NotInstalled extends StatelessWidget {
 }
 
 class _Installing extends StatelessWidget {
-  const _Installing({required this.state});
+  const _Installing({required this.state, required this.displayName});
 
   final LocalShellState state;
+  final String displayName;
 
   @override
   Widget build(BuildContext context) {
@@ -225,7 +302,7 @@ class _Installing extends StatelessWidget {
       children: [
         _Hero(
           icon: Icons.settings_suggest_outlined,
-          title: 'Setting up Arch Linux',
+          title: 'Setting up $displayName',
           body: state.message ?? 'Working…',
         ),
         const SizedBox(height: 24),
@@ -284,6 +361,8 @@ class _Failed extends StatelessWidget {
 class _Ready extends StatelessWidget {
   const _Ready({
     required this.state,
+    required this.displayName,
+    required this.packageManager,
     required this.sharedStorageFeatureEnabled,
     required this.sharedStorageAccessGranted,
     required this.onOpen,
@@ -292,6 +371,8 @@ class _Ready extends StatelessWidget {
   });
 
   final LocalShellState state;
+  final String displayName;
+  final PackageManager packageManager;
   final bool sharedStorageFeatureEnabled;
   final bool sharedStorageAccessGranted;
   final VoidCallback onOpen;
@@ -309,13 +390,19 @@ class _Ready extends StatelessWidget {
     final storageHint = sharedStorageFeatureEnabled
         ? 'Grant file access to mount phone storage at /mnt/android.'
         : 'Phone storage mounting is available in the full build.';
+    final pkgCmd = packageManager == PackageManager.pacman
+        ? 'pacman -Syu'
+        : 'apt-get update && apt-get upgrade';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _Hero(
+        _Hero(
           icon: Icons.check_circle_outline_rounded,
-          title: 'Arch Linux is ready',
-          body: 'Open a local shell and use pacman like any other terminal.',
+          title: '$displayName is ready',
+          body:
+              'Open a local shell and use '
+              '${packageManager == PackageManager.pacman ? 'pacman' : 'apt-get'} '
+              'like any other terminal.',
         ),
         const SizedBox(height: 24),
         FilledButton.icon(
@@ -332,8 +419,7 @@ class _Ready extends StatelessWidget {
         _InfoRow(label: 'Android files', value: storageStatus),
         const SizedBox(height: 16),
         Text(
-          'Update packages from inside the shell with  pacman -Syu . '
-          '$storageHint',
+          'Update packages from inside the shell with  $pkgCmd . $storageHint',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
@@ -349,12 +435,16 @@ class _Ready extends StatelessWidget {
           onPressed: onReset,
           style: TextButton.styleFrom(foregroundColor: theme.colorScheme.error),
           icon: const Icon(Icons.delete_outline_rounded),
-          label: const Text('Remove local shell'),
+          label: const Text('Remove'),
         ),
       ],
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// Shared small widgets
+// ---------------------------------------------------------------------------
 
 class _InfoRow extends StatelessWidget {
   const _InfoRow({required this.label, required this.value});
@@ -428,9 +518,9 @@ class _CreditFooter extends StatelessWidget {
         Divider(color: theme.colorScheme.outlineVariant),
         const SizedBox(height: 8),
         Text(
-          'The local shell uses proot and an Arch Linux ARM image packaged '
-          'through Termux. Conduit redistributes the bundled tools under '
-          'their own open-source licenses.',
+          'The local shell uses proot with Linux distribution images packaged '
+          'through Termux proot-distro. Conduit redistributes the bundled '
+          'tools under their own open-source licenses.',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),

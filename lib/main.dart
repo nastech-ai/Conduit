@@ -12,6 +12,7 @@ import 'package:conduit/features/hosts/data/secure_saved_hosts_repository.dart';
 import 'package:conduit/features/hosts/presentation/hosts_controller.dart';
 import 'package:conduit/features/hosts/presentation/hosts_page.dart';
 import 'package:conduit/features/local_shell/data/local_terminal_repository.dart';
+import 'package:conduit/features/local_shell/local_shell_config.dart';
 import 'package:conduit/features/local_shell/local_shell_licenses.dart';
 import 'package:conduit/features/local_shell/presentation/local_shell_controller.dart';
 import 'package:conduit/features/sftp/data/dart_ssh_sftp_repository.dart';
@@ -51,12 +52,20 @@ void main() {
     secureStorage,
     promptCoordinator,
   );
-  final localShellController = LocalShellController();
+  final localShellControllers = allLocalDistros
+      .map((manifest) => LocalShellController(manifest: manifest))
+      .toList();
   final terminalRepository = RoutingTerminalRepository(
     ssh: DartSshTerminalRepository(hostKeyVerifier),
     mosh: MoshTerminalRepository(hostKeyVerifier),
     local: LocalTerminalRepository(
-      resolvePaths: localShellController.requirePaths,
+      resolvePaths: (hostId) async {
+        final controller = localShellControllers.firstWhere(
+          (c) => c.hostId == hostId,
+          orElse: () => localShellControllers.first,
+        );
+        return controller.requirePaths();
+      },
     ),
   );
   final workspaceController = TerminalWorkspaceController(
@@ -80,7 +89,7 @@ void main() {
       hostsController: hostsController,
       terminalRepository: terminalRepository,
       workspaceController: workspaceController,
-      localShellController: localShellController,
+      localShellControllers: localShellControllers,
       hostKeyVerifier: hostKeyVerifier,
       promptCoordinator: promptCoordinator,
       sftpRepository: sftpRepository,
@@ -97,7 +106,7 @@ class ConduitApp extends StatefulWidget {
     required this.hostsController,
     required this.terminalRepository,
     required this.workspaceController,
-    required this.localShellController,
+    required this.localShellControllers,
     required this.hostKeyVerifier,
     required this.promptCoordinator,
     required this.sftpRepository,
@@ -111,7 +120,7 @@ class ConduitApp extends StatefulWidget {
   final HostsController hostsController;
   final SshTerminalRepository terminalRepository;
   final TerminalWorkspaceController workspaceController;
-  final LocalShellController localShellController;
+  final List<LocalShellController> localShellControllers;
   final HostKeyVerifier hostKeyVerifier;
   final HostKeyPromptCoordinator promptCoordinator;
   final SftpRepository sftpRepository;
@@ -244,7 +253,7 @@ class _ConduitAppState extends State<ConduitApp> with WidgetsBindingObserver {
                 lockController: widget.lockController,
                 terminalRepository: widget.terminalRepository,
                 workspaceController: widget.workspaceController,
-                localShellController: widget.localShellController,
+                localShellControllers: widget.localShellControllers,
                 themeController: widget.themeController,
                 hostKeyVerifier: widget.hostKeyVerifier,
                 promptCoordinator: widget.promptCoordinator,

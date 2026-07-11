@@ -2,6 +2,8 @@ import 'package:conduit/features/local_shell/domain/local_shell_state.dart';
 import 'package:conduit/features/local_shell/presentation/local_shell_controller.dart';
 import 'package:flutter/material.dart';
 
+/// A compact card showing one distro's state, without a section header.
+/// The section header ("Device") is rendered once by the parent (hosts_page).
 class LocalShellCard extends StatelessWidget {
   const LocalShellCard({
     required this.controller,
@@ -24,41 +26,10 @@ class LocalShellCard extends StatelessWidget {
         final state = controller.state;
         if (state.isUnsupported) return const SizedBox.shrink();
         return Padding(
-          padding: const EdgeInsets.fromLTRB(18, 0, 18, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _sectionHeader(context),
-              const SizedBox(height: 10),
-              _card(context, state),
-            ],
-          ),
+          padding: const EdgeInsets.only(bottom: 8),
+          child: _card(context, state),
         );
       },
-    );
-  }
-
-  Widget _sectionHeader(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Device',
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 3),
-        Text(
-          'Run commands locally, no server required.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-            height: 1.25,
-          ),
-        ),
-      ],
     );
   }
 
@@ -93,7 +64,7 @@ class LocalShellCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Local shell',
+                      controller.displayName,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: theme.textTheme.titleSmall?.copyWith(
@@ -167,17 +138,17 @@ class LocalShellCard extends StatelessWidget {
   }
 
   String _statusLine(LocalShellState state) {
+    final sizeMb = (controller.downloadSizeBytes / 1024 / 1024).round();
     return switch (state.stage) {
-      LocalShellStage.ready =>
-        'Arch Linux · ${_formatBytes(state.diskUsageBytes)}',
-      LocalShellStage.checking => 'Arch Linux · checking…',
-      LocalShellStage.notInstalled => 'Arch Linux · tap to install (~142 MB)',
+      LocalShellStage.ready => _formatBytes(state.diskUsageBytes),
+      LocalShellStage.checking => 'Checking…',
+      LocalShellStage.notInstalled => 'Tap to install (~$sizeMb MB)',
       LocalShellStage.downloading =>
         'Downloading… ${((state.progress ?? 0) * 100).toStringAsFixed(0)}%',
       LocalShellStage.extracting => 'Unpacking…',
       LocalShellStage.configuring => 'Configuring…',
       LocalShellStage.failed =>
-        state.error?.message ?? 'Setup failed - tap to retry',
+        state.error?.message ?? 'Setup failed — tap to retry',
       LocalShellStage.unsupported => 'Not available on this device',
     };
   }

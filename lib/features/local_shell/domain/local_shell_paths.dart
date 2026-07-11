@@ -2,12 +2,17 @@ import 'package:path/path.dart' as p;
 
 class LocalShellPaths {
   const LocalShellPaths({
+    required this.distroId,
     required this.nativeLibraryDir,
     required this.dataDir,
     this.sharedStorageFeatureEnabled = false,
     this.sharedStorageDir = '',
     this.sharedStorageAccessGranted = false,
   });
+
+  /// Stable distro identifier, e.g. 'archlinux', 'ubuntu', 'debian'.
+  /// Used to isolate each distro's rootfs under its own directory.
+  final String distroId;
 
   final String nativeLibraryDir;
 
@@ -28,7 +33,7 @@ class LocalShellPaths {
 
   String get xzBinary => p.join(nativeLibraryDir, 'libxzbin.so');
 
-  String get installRoot => p.join(dataDir, 'archlinux');
+  String get installRoot => p.join(dataDir, distroId);
   String get rootfsDir => p.join(installRoot, 'rootfs');
   String get androidSharedMountHostPath => p.join(rootfsDir, 'mnt', 'android');
   bool get canMountSharedStorage =>

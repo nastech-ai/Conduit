@@ -25,7 +25,8 @@ class LocalTerminalRepository implements SshTerminalRepository {
     PtyProcessFactory? processFactory,
   }) : _processFactory = processFactory ?? _defaultProcessFactory;
 
-  final Future<LocalShellPaths> Function() resolvePaths;
+  /// Returns paths for the distro identified by [hostId].
+  final Future<LocalShellPaths> Function(String hostId) resolvePaths;
   final PtyProcessFactory _processFactory;
 
   static PtyProcess _defaultProcessFactory({
@@ -51,7 +52,7 @@ class LocalTerminalRepository implements SshTerminalRepository {
     required int rows,
   }) async {
     try {
-      final paths = await resolvePaths();
+      final paths = await resolvePaths(host.id);
       final bindMounts = await _prepareBindMounts(paths);
       final command = ProotCommandBuilder(
         prootBinary: paths.prootBinary,
@@ -72,7 +73,7 @@ class LocalTerminalRepository implements SshTerminalRepository {
     } on AppFailure {
       rethrow;
     } catch (error) {
-      throw AppFailure('Could not start the local Arch Linux shell.', '$error');
+      throw AppFailure('Could not start the local shell.', '$error');
     }
   }
 

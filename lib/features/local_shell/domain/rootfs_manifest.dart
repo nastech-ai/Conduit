@@ -2,32 +2,47 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
+enum PackageManager { pacman, apt }
+
 class RootfsManifest {
   const RootfsManifest({
     required this.version,
     required this.archiveUrl,
     required this.sha256,
     required this.downloadSizeBytes,
-    required this.pacmanMirror,
+    required this.distroId,
+    required this.displayName,
+    required this.packageManager,
+    this.pacmanMirror = '',
     this.keyringName = 'archlinuxarm',
   });
 
   final String version;
   final Uri archiveUrl;
-
   final String sha256;
   final int downloadSizeBytes;
 
+  /// Stable identifier used for storage paths, e.g. 'archlinux', 'ubuntu', 'debian'.
+  final String distroId;
+
+  /// Human-readable name shown in the UI, e.g. 'Arch Linux ARM', 'Ubuntu 24.04'.
+  final String displayName;
+
+  /// Which package manager the distro uses.
+  final PackageManager packageManager;
+
+  /// Pacman mirror URL (only used when [packageManager] is [PackageManager.pacman]).
   final String pacmanMirror;
 
+  /// Pacman keyring name (only used when [packageManager] is [PackageManager.pacman]).
   final String keyringName;
 
   factory RootfsManifest.fromJson(Map<String, Object?> json) {
     final url = (json['archiveUrl'] as String?)?.trim() ?? '';
     final sha = (json['sha256'] as String?)?.trim().toLowerCase() ?? '';
-    final mirror = (json['pacmanMirror'] as String?)?.trim() ?? '';
     final version = (json['version'] as String?)?.trim() ?? '';
     final size = (json['downloadSizeBytes'] as num?)?.toInt() ?? 0;
+    final mirror = (json['pacmanMirror'] as String?)?.trim() ?? '';
 
     if (url.isEmpty) {
       throw const FormatException('Manifest is missing "archiveUrl".');
@@ -44,17 +59,27 @@ class RootfsManifest {
     if (version.isEmpty) {
       throw const FormatException('Manifest is missing "version".');
     }
-    if (mirror.isEmpty) {
-      throw const FormatException('Manifest is missing "pacmanMirror".');
-    }
+
+    final pmRaw = (json['packageManager'] as String?)?.trim() ?? 'pacman';
+    final pm = pmRaw == 'apt' ? PackageManager.apt : PackageManager.pacman;
 
     return RootfsManifest(
       version: version,
       archiveUrl: parsedUrl,
       sha256: sha,
       downloadSizeBytes: size,
+      distroId:
+          (json['distroId'] as String?)?.trim().isNotEmpty == true
+          ? (json['distroId'] as String).trim()
+          : 'archlinux',
+      displayName:
+          (json['displayName'] as String?)?.trim().isNotEmpty == true
+          ? (json['displayName'] as String).trim()
+          : 'Arch Linux ARM',
+      packageManager: pm,
       pacmanMirror: mirror,
-      keyringName: (json['keyringName'] as String?)?.trim().isNotEmpty == true
+      keyringName:
+          (json['keyringName'] as String?)?.trim().isNotEmpty == true
           ? (json['keyringName'] as String).trim()
           : 'archlinuxarm',
     );
