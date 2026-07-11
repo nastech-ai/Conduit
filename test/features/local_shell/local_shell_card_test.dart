@@ -1,4 +1,5 @@
 import 'package:conduit/features/local_shell/domain/local_shell_state.dart';
+import 'package:conduit/features/local_shell/local_shell_config.dart';
 import 'package:conduit/features/local_shell/presentation/local_shell_controller.dart';
 import 'package:conduit/features/local_shell/presentation/widgets/local_shell_card.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +22,7 @@ void main() {
   testWidgets('shows a checking state before probing completes', (
     tester,
   ) async {
-    final controller = LocalShellController();
+    final controller = LocalShellController(manifest: archLinuxDistro);
     var managed = false;
     await tester.pumpWidget(wrap(controller, onManage: () => managed = true));
 
@@ -48,7 +49,7 @@ void main() {
   });
 
   testWidgets('hides itself on unsupported devices', (tester) async {
-    final controller = LocalShellController();
+    final controller = LocalShellController(manifest: archLinuxDistro);
     await controller.refresh();
     await tester.pumpWidget(wrap(controller, onManage: () {}));
 
@@ -57,7 +58,7 @@ void main() {
 }
 
 class _FakeLocalShellController extends LocalShellController {
-  _FakeLocalShellController(this._state);
+  _FakeLocalShellController(this._state) : super(manifest: archLinuxDistro);
 
   final LocalShellState _state;
 

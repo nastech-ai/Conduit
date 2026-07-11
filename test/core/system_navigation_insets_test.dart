@@ -8,6 +8,7 @@ import 'package:conduit/features/backup/data/app_backup_service.dart';
 import 'package:conduit/features/hosts/domain/saved_host.dart';
 import 'package:conduit/features/hosts/presentation/hosts_controller.dart';
 import 'package:conduit/features/local_shell/domain/local_shell_state.dart';
+import 'package:conduit/features/local_shell/local_shell_config.dart';
 import 'package:conduit/features/local_shell/presentation/local_shell_controller.dart';
 import 'package:conduit/features/terminal/presentation/host_key_prompt_coordinator.dart';
 import 'package:conduit/features/terminal/presentation/terminal_page.dart';
@@ -79,7 +80,7 @@ void main() {
         workspaceController: TerminalWorkspaceController(
           NoNetworkTerminalRepository(),
         ),
-        localShellController: LocalShellController(),
+        localShellControllers: [LocalShellController(manifest: archLinuxDistro)],
         hostKeyVerifier: verifier,
         promptCoordinator: promptCoordinator,
         sftpRepository: NoNetworkSftpRepository(),
@@ -126,7 +127,7 @@ void main() {
         workspaceController: TerminalWorkspaceController(
           NoNetworkTerminalRepository(),
         ),
-        localShellController: _VisibleLocalShellController(),
+        localShellControllers: [_VisibleLocalShellController()],
         hostKeyVerifier: verifier,
         promptCoordinator: promptCoordinator,
         sftpRepository: NoNetworkSftpRepository(),
@@ -248,6 +249,8 @@ void main() {
 }
 
 class _VisibleLocalShellController extends LocalShellController {
+  _VisibleLocalShellController() : super(manifest: archLinuxDistro);
+
   @override
   LocalShellState get state => LocalShellState.notInstalled;
 

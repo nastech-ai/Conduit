@@ -2,8 +2,8 @@ import 'package:conduit/features/local_shell/local_shell_config.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('defaultRootfsManifest', () {
-    final manifest = defaultRootfsManifest();
+  group('archLinuxDistro', () {
+    final manifest = archLinuxDistro;
 
     test('points at a verified https archive', () {
       expect(manifest.archiveUrl.scheme, 'https');

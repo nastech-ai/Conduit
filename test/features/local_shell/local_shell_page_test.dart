@@ -1,11 +1,12 @@
 import 'package:conduit/features/local_shell/domain/local_shell_state.dart';
+import 'package:conduit/features/local_shell/local_shell_config.dart';
 import 'package:conduit/features/local_shell/presentation/local_shell_controller.dart';
 import 'package:conduit/features/local_shell/presentation/local_shell_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class FakeReadyLocalShellController extends LocalShellController {
-  FakeReadyLocalShellController(this.events);
+  FakeReadyLocalShellController(this.events) : super(manifest: archLinuxDistro);
 
   final List<String> events;
   LocalShellState _fakeState = const LocalShellState(
@@ -39,9 +40,9 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: LocalShellPage(
-            controller: controller,
-            onOpenSession: () async {},
-            onCloseSession: () async => events.add('close'),
+            controllers: [controller],
+            onOpenSession: (_) async {},
+            onCloseSession: (_) async => events.add('close'),
           ),
         ),
       );

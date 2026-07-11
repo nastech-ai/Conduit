@@ -5,6 +5,7 @@ import 'package:conduit/features/local_shell/data/local_shell_platform.dart';
 import 'package:conduit/features/local_shell/data/rootfs_manifest_source.dart';
 import 'package:conduit/features/local_shell/domain/local_shell_state.dart';
 import 'package:conduit/features/local_shell/domain/rootfs_manifest.dart';
+import 'package:conduit/features/local_shell/local_shell_config.dart';
 import 'package:conduit/features/local_shell/presentation/local_shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -50,6 +51,7 @@ void main() {
         final probe = Completer<LocalShellEnvironment?>();
         final platform = FakeLocalShellPlatform(() => probe.future);
         final controller = LocalShellController(
+          manifest: archLinuxDistro,
           platform: platform,
           manifestSource: const ThrowingManifestSource(),
         );
