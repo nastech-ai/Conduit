@@ -41,6 +41,9 @@ lib/
 
 - Code is edited here on Replit; building and testing is done via Git CI (Flutter 3.44.1+ / Dart ^3.12.0 required).
 - The app targets Android/iOS — it cannot be built or previewed directly on Replit.
+- Flutter CLI isn't installed in this workspace; `flutter build`/`flutter test` can't run here. Icon/asset changes are made by editing `assets/icon/*.png` and manually regenerating platform outputs (Android `mipmap-*`/`drawable-*`, iOS `AppIcon.appiconset`) with ImageMagick, since `flutter pub run flutter_launcher_icons` isn't available.
+- The `Release` GitHub Actions workflow (`.github/workflows/release.yml`) auto-bumps the patch version + build number and pushes a `[skip ci]` commit at the start of every run, so `pubspec.yaml`'s version is CI-managed — don't hand-edit it expecting it to stick.
+- The Release workflow currently builds **unsigned** APKs (no `ANDROID_KEYSTORE_BASE64`/`ANDROID_KEY_ALIAS`/`ANDROID_KEY_PASSWORD`/`ANDROID_STORE_PASSWORD` repo secrets are set). Releases are tagged/published but aren't Play Store-ready until the real production keystore is added as GitHub Actions secrets.
 
 ## User preferences
 

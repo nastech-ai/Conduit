@@ -1,0 +1,2 @@
+- [Conduit: no Flutter CLI on Replit](conduit-no-flutter-cli.md) — icon/asset changes need manual ImageMagick regen of platform outputs, not flutter_launcher_icons.
+- [Conduit Release workflow versioning](conduit-release-versioning.md) — CI auto-bumps pubspec.yaml version every run; don't hand-edit version expecting it to persist.
