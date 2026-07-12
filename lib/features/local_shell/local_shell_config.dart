@@ -28,7 +28,7 @@ final ubuntu2404Distro = RootfsManifest(
   archiveUrl: Uri.parse(
     '$_base/v4.18.0/ubuntu-noble-aarch64-pd-v4.18.0.tar.xz',
   ),
-  sha256: '3a841a794ae5999b33e33b329582ed0379d4f54ca62c6ce5a8eb9cff5ef8900b',
+  sha256: '91acaa786b8e2fbba56a9fd0f8a1188cee482b5c7baeed707b29ddaa9a294daa',
   downloadSizeBytes: 64133552,
 );
 
@@ -41,6 +41,6 @@ final debian12Distro = RootfsManifest(
   archiveUrl: Uri.parse(
     '$_base/v4.17.3/debian-bookworm-aarch64-pd-v4.17.3.tar.xz',
   ),
-  sha256: '91acaa786b8e2fbba56a9fd0f8a1188cee482b5c7baeed707b29ddaa9a294daa',
+  sha256: '3a841a794ae5999b33e33b329582ed0379d4f54ca62c6ce5a8eb9cff5ef8900b',
   downloadSizeBytes: 42912980,
 );
