@@ -52,6 +52,8 @@ jobs:
           git commit -m "ci: bump version to ${tag} [skip ci]"
           git push origin "HEAD:${GITHUB_REF_NAME}"
 
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -191,7 +193,7 @@ jobs:
         with:
           tag_name: ${{ steps.metadata.outputs.tag }}
           name: ${{ steps.metadata.outputs.name }}
-          target_commitish: ${{ github.sha }}
+          target_commitish: ${{ steps.bump.outputs.sha }}
           files: build/app/outputs/flutter-apk/*-release.apk
           generate_release_notes: true
           make_latest: true
