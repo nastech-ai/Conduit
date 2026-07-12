@@ -20,6 +20,38 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Bump version
+        id: bump
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch --tags --quiet
+
+          current="$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml | head -n 1)"
+          name_part="${current%%+*}"
+          build_part="${current##*+}"
+          major="$(cut -d. -f1 <<<"$name_part")"
+          minor="$(cut -d. -f2 <<<"$name_part")"
+          patch="$(cut -d. -f3 <<<"$name_part")"
+
+          while :; do
+            patch=$((patch + 1))
+            build_part=$((build_part + 1))
+            new_version="${major}.${minor}.${patch}"
+            tag="v${new_version}"
+            if ! git rev-parse -q --verify "refs/tags/${tag}" >/dev/null \
+               && ! git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+              break
+            fi
+          done
+
+          sed -i "s/^version:.*/version: ${new_version}+${build_part}/" pubspec.yaml
+
+          git add pubspec.yaml
+          git commit -m "ci: bump version to ${tag} [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
